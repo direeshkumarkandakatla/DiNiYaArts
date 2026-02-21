@@ -204,7 +204,7 @@ using (var scope = app.Services.CreateScope())
 app.Run();
 
 }
-catch (Exception ex)
+catch (Exception ex) when (ex is not HostAbortedException)
 {
     Log.Fatal(ex, "Application terminated unexpectedly");
 }

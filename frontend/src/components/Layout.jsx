@@ -17,6 +17,7 @@ import {
   Menu,
   MenuItem,
   Tooltip,
+  Chip,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -27,43 +28,64 @@ import PeopleIcon from '@mui/icons-material/People';
 import PersonIcon from '@mui/icons-material/Person';
 import LinkIcon from '@mui/icons-material/Link';
 import SchoolIcon from '@mui/icons-material/School';
+import CategoryIcon from '@mui/icons-material/Category';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import LogoutIcon from '@mui/icons-material/Logout';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import { useAuth } from '../context/AuthContext';
 
 const drawerWidthOpen = 240;
 const drawerWidthClosed = 64;
 
-const getNavItems = (roles) => {
-  const isAdminOrInstructor = roles?.some(
-    (r) => r === 'Administrator' || r === 'Instructor'
-  );
+const getNavItems = (activeRole) => {
+  const isAdminOrInstructor = activeRole === 'Administrator' || activeRole === 'Instructor';
 
   const items = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Calendar', icon: <CalendarMonthIcon />, path: '/sessions/calendar' },
-    { text: 'Sessions', icon: <ListAltIcon />, path: '/sessions' },
   ];
 
   if (isAdminOrInstructor) {
+    items.push({ text: 'Sessions', icon: <ListAltIcon />, path: '/sessions' });
     items.push({ text: 'Students', icon: <PeopleIcon />, path: '/students' });
     items.push({ text: 'Link Requests', icon: <LinkIcon />, path: '/link-requests' });
+    items.push({ text: 'Billing', icon: <ReceiptLongIcon />, path: '/billing' });
   }
 
-  items.push({ text: 'My Students', icon: <SchoolIcon />, path: '/my-students' });
+  if (activeRole === 'Administrator') {
+    items.push({ text: 'Class Types', icon: <CategoryIcon />, path: '/class-types' });
+    items.push({ text: 'Users', icon: <AdminPanelSettingsIcon />, path: '/users' });
+  }
+
+  // Show "My Students" only in Student/Parent context
+  if (!isAdminOrInstructor) {
+    items.push({ text: 'My Students', icon: <SchoolIcon />, path: '/my-students' });
+    items.push({ text: 'My Dues', icon: <ReceiptLongIcon />, path: '/my-dues' });
+  }
 
   return items;
+};
+
+const ROLE_COLORS = {
+  Administrator: 'error',
+  Instructor: 'primary',
+  Parent: 'secondary',
+  Student: 'success',
 };
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [anchorEl, setAnchorEl] = useState(null);
-  const { user, logout } = useAuth();
+  const [roleMenuAnchor, setRoleMenuAnchor] = useState(null);
+  const { user, activeRole, switchRole, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const navItems = getNavItems(user?.roles);
+  const navItems = getNavItems(activeRole);
   const currentWidth = sidebarOpen ? drawerWidthOpen : drawerWidthClosed;
+  const hasMultipleRoles = user?.roles?.length > 1;
 
   const handleMobileToggle = () => setMobileOpen(!mobileOpen);
   const handleSidebarToggle = () => setSidebarOpen(!sidebarOpen);
@@ -74,6 +96,13 @@ export default function Layout() {
     handleMenuClose();
     logout();
     navigate('/login');
+  };
+
+  const handleRoleSwitch = (role) => {
+    switchRole(role);
+    setRoleMenuAnchor(null);
+    // Navigate to dashboard when switching roles to avoid being on a page the new role can't access
+    navigate('/dashboard');
   };
 
   const drawerContent = (isMobile) => (
@@ -91,6 +120,57 @@ export default function Layout() {
         )}
       </Toolbar>
       <Divider />
+
+      {/* Role switcher in sidebar */}
+      {hasMultipleRoles && (sidebarOpen || isMobile) && (
+        <Box sx={{ px: 2, py: 1.5 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+            Active Role
+          </Typography>
+          <Chip
+            label={activeRole}
+            color={ROLE_COLORS[activeRole] || 'default'}
+            size="small"
+            icon={<SwapHorizIcon />}
+            onClick={(e) => setRoleMenuAnchor(e.currentTarget)}
+            sx={{ cursor: 'pointer' }}
+          />
+          <Menu
+            anchorEl={roleMenuAnchor}
+            open={Boolean(roleMenuAnchor)}
+            onClose={() => setRoleMenuAnchor(null)}
+          >
+            {user.roles.map((role) => (
+              <MenuItem
+                key={role}
+                selected={role === activeRole}
+                onClick={() => handleRoleSwitch(role)}
+              >
+                <Chip
+                  label={role}
+                  color={ROLE_COLORS[role] || 'default'}
+                  size="small"
+                  variant={role === activeRole ? 'filled' : 'outlined'}
+                  sx={{ mr: 1 }}
+                />
+                {role === activeRole && '(active)'}
+              </MenuItem>
+            ))}
+          </Menu>
+        </Box>
+      )}
+      {hasMultipleRoles && !sidebarOpen && !isMobile && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
+          <Tooltip title={`Switch role (${activeRole})`} placement="right">
+            <IconButton size="small" onClick={(e) => setRoleMenuAnchor(e.currentTarget)}>
+              <SwapHorizIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      )}
+
+      {hasMultipleRoles && <Divider />}
+
       <List>
         {navItems.map((item) => (
           <ListItem key={item.text} disablePadding sx={{ display: 'block' }}>
@@ -147,6 +227,16 @@ export default function Layout() {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             DiNiYaArts Studio
           </Typography>
+
+          {activeRole && (
+            <Chip
+              label={activeRole}
+              color={ROLE_COLORS[activeRole] || 'default'}
+              size="small"
+              variant="outlined"
+              sx={{ mr: 2, color: 'white', borderColor: 'rgba(255,255,255,0.5)' }}
+            />
+          )}
 
           <IconButton onClick={handleMenuOpen} color="inherit">
             <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>

@@ -18,6 +18,9 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Student> Students { get; set; }
     public DbSet<Attendance> Attendances { get; set; }
     public DbSet<StudentLinkRequest> StudentLinkRequests { get; set; }
+    public DbSet<PackageDefinition> PackageDefinitions { get; set; }
+    public DbSet<StudentPackage> StudentPackages { get; set; }
+    public DbSet<Payment> Payments { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -45,6 +48,11 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .WithOne(s => s.Parent)
             .HasForeignKey(s => s.ParentUserId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        // ClassType decimal config
+        builder.Entity<ClassType>()
+            .Property(ct => ct.DefaultSessionPrice)
+            .HasColumnType("decimal(10,2)");
 
         // ClassType -> Sessions (one-to-many)
         builder.Entity<ClassType>()
@@ -87,6 +95,68 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .WithMany()
             .HasForeignKey(r => r.ReviewedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // PackageDefinition -> ClassType (many-to-one)
+        builder.Entity<PackageDefinition>()
+            .HasOne(p => p.ClassType)
+            .WithMany()
+            .HasForeignKey(p => p.ClassTypeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<PackageDefinition>()
+            .Property(p => p.Price)
+            .HasColumnType("decimal(10,2)");
+
+        // Student -> StudentPackages (one-to-many)
+        builder.Entity<Student>()
+            .HasMany(s => s.Packages)
+            .WithOne(sp => sp.Student)
+            .HasForeignKey(sp => sp.StudentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // StudentPackage -> PackageDefinition (many-to-one)
+        builder.Entity<StudentPackage>()
+            .HasOne(sp => sp.PackageDefinition)
+            .WithMany()
+            .HasForeignKey(sp => sp.PackageDefinitionId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // StudentPackage -> CreatedBy (many-to-one)
+        builder.Entity<StudentPackage>()
+            .HasOne(sp => sp.CreatedBy)
+            .WithMany()
+            .HasForeignKey(sp => sp.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<StudentPackage>()
+            .Property(sp => sp.PackagePrice)
+            .HasColumnType("decimal(10,2)");
+
+        builder.Entity<StudentPackage>()
+            .HasIndex(sp => new { sp.StudentId, sp.PackageDefinitionId, sp.BillingYear, sp.BillingMonth })
+            .IsUnique();
+
+        // Student -> Payments (one-to-many)
+        builder.Entity<Student>()
+            .HasMany(s => s.Payments)
+            .WithOne(p => p.Student)
+            .HasForeignKey(p => p.StudentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Payment -> RecordedBy (many-to-one)
+        builder.Entity<Payment>()
+            .HasOne(p => p.RecordedBy)
+            .WithMany()
+            .HasForeignKey(p => p.RecordedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Payment>()
+            .Property(p => p.Amount)
+            .HasColumnType("decimal(10,2)");
+
+        builder.Entity<Payment>()
+            .Property(p => p.Discount)
+            .HasColumnType("decimal(10,2)");
 
         // Indexes for better query performance
         builder.Entity<Session>()

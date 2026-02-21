@@ -31,6 +31,7 @@ import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import { linkRequestsAPI } from '../services/api';
+import StudentAttendanceHistory from '../components/StudentAttendanceHistory';
 
 const AGE_GROUPS = [
   { value: '', label: 'Not specified' },
@@ -254,6 +255,18 @@ export default function MyStudents() {
                   <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
                     Note: {req.reviewNotes}
                   </Typography>
+                )}
+                {req.status === 'Approved' && req.studentId && (
+                  <>
+                    <Divider sx={{ mt: 2, mb: 1 }} />
+                    <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                      Attendance
+                    </Typography>
+                    <StudentAttendanceHistory
+                      studentId={req.studentId}
+                      studentName={req.studentName || `${req.newFirstName} ${req.newLastName}`}
+                    />
+                  </>
                 )}
               </CardContent>
             </Card>

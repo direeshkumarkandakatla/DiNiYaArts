@@ -66,15 +66,27 @@ export const sessionsAPI = {
   createBulk: (data) => api.post('/sessions/bulk', data),
   update: (id, data) => api.put(`/sessions/${id}`, data),
   delete: (id) => api.delete(`/sessions/${id}`),
+  updateStatus: (id, data) => api.patch(`/sessions/${id}/status`, data),
+  bulkComplete: () => api.post('/sessions/bulk-complete'),
 };
 
-// Students endpoints (to be implemented)
+// Students endpoints
 export const studentsAPI = {
   getAll: (params) => api.get('/students', { params }),
   getById: (id) => api.get(`/students/${id}`),
   create: (data) => api.post('/students', data),
   update: (id, data) => api.put(`/students/${id}`, data),
   delete: (id) => api.delete(`/students/${id}`),
+  linkToUser: (id, data) => api.put(`/students/${id}/link`, data),
+  searchUsers: (q) => api.get('/students/search-users', { params: { q } }),
+};
+
+// Users endpoints (Admin)
+export const usersAPI = {
+  getAll: (search) => api.get('/users', { params: search ? { search } : {} }),
+  getById: (id) => api.get(`/users/${id}`),
+  assignRole: (id, data) => api.put(`/users/${id}/roles`, data),
+  removeRole: (id, role) => api.delete(`/users/${id}/roles/${role}`),
 };
 
 // Student Link Requests endpoints
@@ -83,10 +95,54 @@ export const linkRequestsAPI = {
   claim: (data) => api.post('/studentlinkrequests/claim', data),
   createStudent: (data) => api.post('/studentlinkrequests/create-student', data),
   getMyRequests: () => api.get('/studentlinkrequests/my'),
+  getAll: (status) => api.get('/studentlinkrequests/all', { params: status ? { status } : {} }),
   getPending: () => api.get('/studentlinkrequests/pending'),
   getPendingCount: () => api.get('/studentlinkrequests/pending-count'),
   approve: (id, data) => api.put(`/studentlinkrequests/${id}/approve`, data || {}),
   reject: (id, data) => api.put(`/studentlinkrequests/${id}/reject`, data || {}),
+  clearResolved: () => api.delete('/studentlinkrequests/clear-resolved'),
+};
+
+// Attendance endpoints
+export const attendanceAPI = {
+  getForSession: (sessionId) => api.get(`/attendance/session/${sessionId}`),
+  markForSession: (sessionId, data) => api.post(`/attendance/session/${sessionId}`, data),
+  update: (id, data) => api.put(`/attendance/${id}`, data),
+  delete: (id) => api.delete(`/attendance/${id}`),
+  getForStudent: (studentId) => api.get(`/attendance/student/${studentId}`),
+  getStudentSummary: (studentId) => api.get(`/attendance/student/${studentId}/summary`),
+  getMy: () => api.get('/attendance/my'),
+};
+
+// Class Types endpoints
+export const classTypesAPI = {
+  getAll: (params) => api.get('/classtypes', { params }),
+  getById: (id) => api.get(`/classtypes/${id}`),
+  create: (data) => api.post('/classtypes', data),
+  update: (id, data) => api.put(`/classtypes/${id}`, data),
+  delete: (id) => api.delete(`/classtypes/${id}`),
+};
+
+// Package Definitions endpoints (Admin)
+export const packageDefinitionsAPI = {
+  getAll: (params) => api.get('/packagedefinitions', { params }),
+  create: (data) => api.post('/packagedefinitions', data),
+  update: (id, data) => api.put(`/packagedefinitions/${id}`, data),
+  delete: (id) => api.delete(`/packagedefinitions/${id}`),
+};
+
+// Billing endpoints
+export const billingAPI = {
+  getPackages: (params) => api.get('/billing/packages', { params }),
+  enrollPackage: (data) => api.post('/billing/packages', data),
+  bulkEnrollPackage: (data) => api.post('/billing/packages/bulk', data),
+  deletePackage: (id) => api.delete(`/billing/packages/${id}`),
+  getPayments: (params) => api.get('/billing/payments', { params }),
+  recordPayment: (data) => api.post('/billing/payments', data),
+  deletePayment: (id) => api.delete(`/billing/payments/${id}`),
+  getSummary: (params) => api.get('/billing/summary', { params }),
+  getStudentBalance: (studentId, params) => api.get(`/billing/student/${studentId}`, { params }),
+  getMy: () => api.get('/billing/my'),
 };
 
 export default api;

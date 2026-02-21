@@ -5,7 +5,7 @@ public class Attendance
     public int Id { get; set; }
     public int SessionId { get; set; }
     public int StudentId { get; set; }
-    public AttendanceStatus Status { get; set; } = AttendanceStatus.Present;
+    public AttendanceStatus Status { get; set; } = AttendanceStatus.Assigned;
     public string? Notes { get; set; }
     public DateTime MarkedAt { get; set; } = DateTime.UtcNow;
 
@@ -16,6 +16,7 @@ public class Attendance
 
 public enum AttendanceStatus
 {
+    Assigned,
     Present,
     Absent,
     Late,

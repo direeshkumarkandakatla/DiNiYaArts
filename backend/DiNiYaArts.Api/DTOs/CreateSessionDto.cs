@@ -18,4 +18,6 @@ public class CreateSessionDto
     public int MaxStudents { get; set; } = 10;
 
     public string? Notes { get; set; }
+
+    public List<int>? StudentIds { get; set; }
 }

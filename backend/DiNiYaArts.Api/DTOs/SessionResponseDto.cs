@@ -12,6 +12,8 @@ public class SessionResponseDto
     public int MaxStudents { get; set; }
     public int CurrentStudentCount { get; set; }
     public string? Notes { get; set; }
+    public string Status { get; set; } = "Scheduled";
+    public string CreatedByUserId { get; set; } = string.Empty;
     public string CreatedByName { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
 }

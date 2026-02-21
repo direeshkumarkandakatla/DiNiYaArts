@@ -23,4 +23,6 @@ public class Student
     public ApplicationUser? User { get; set; }  // Student's own account (if they have one)
     public ApplicationUser? Parent { get; set; }  // Parent who manages this student
     public ICollection<Attendance> Attendances { get; set; } = new List<Attendance>();
+    public ICollection<StudentPackage> Packages { get; set; } = new List<StudentPackage>();
+    public ICollection<Payment> Payments { get; set; } = new List<Payment>();
 }

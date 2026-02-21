@@ -21,7 +21,7 @@ import {
   Typography,
   Chip,
 } from '@mui/material';
-import { sessionsAPI } from '../services/api';
+import { sessionsAPI, studentsAPI } from '../services/api';
 import api from '../services/api';
 
 const DAY_OPTIONS = [
@@ -46,6 +46,9 @@ export default function CreateSessionDialog({ open, onClose, onCreated, initialD
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [mode, setMode] = useState('single'); // 'single' or 'recurring'
+  const [students, setStudents] = useState([]);
+  const [selectedStudentIds, setSelectedStudentIds] = useState([]);
+  const [studentSearch, setStudentSearch] = useState('');
   const [formData, setFormData] = useState({
     classTypeId: '',
     startDateTime: '',
@@ -68,6 +71,7 @@ export default function CreateSessionDialog({ open, onClose, onCreated, initialD
   useEffect(() => {
     if (open) {
       fetchClassTypes();
+      fetchStudents();
       if (initialDate) {
         const dateStr = formatDateTimeLocal(initialDate);
         setFormData((prev) => ({ ...prev, startDateTime: dateStr }));
@@ -113,6 +117,26 @@ export default function CreateSessionDialog({ open, onClose, onCreated, initialD
     }
   };
 
+  const fetchStudents = async () => {
+    try {
+      const response = await studentsAPI.getAll({ activeOnly: true });
+      setStudents(response.data);
+    } catch (err) {
+      console.error('Failed to fetch students:', err);
+    }
+  };
+
+  const handleStudentToggle = (studentId) => {
+    setSelectedStudentIds((prev) =>
+      prev.includes(studentId) ? prev.filter((id) => id !== studentId) : [...prev, studentId]
+    );
+  };
+
+  const filteredStudents = students.filter((s) => {
+    const name = `${s.firstName} ${s.lastName}`.toLowerCase();
+    return name.includes(studentSearch.toLowerCase());
+  });
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -151,6 +175,7 @@ export default function CreateSessionDialog({ open, onClose, onCreated, initialD
         durationMinutes: Number(formData.durationMinutes),
         maxStudents: Number(formData.maxStudents),
         notes: formData.notes || null,
+        studentIds: selectedStudentIds.length > 0 ? selectedStudentIds : null,
       });
 
       resetAndClose();
@@ -184,6 +209,8 @@ export default function CreateSessionDialog({ open, onClose, onCreated, initialD
         recurrence: Number(bulkData.recurrence),
         maxStudents: Number(bulkData.maxStudents),
         notes: bulkData.notes || null,
+        studentIds: selectedStudentIds.length > 0 ? selectedStudentIds : null,
+        timezoneOffsetMinutes: new Date().getTimezoneOffset(),
       });
 
       resetAndClose();
@@ -214,9 +241,85 @@ export default function CreateSessionDialog({ open, onClose, onCreated, initialD
       maxStudents: 10,
       notes: '',
     });
+    setSelectedStudentIds([]);
+    setStudentSearch('');
     setError('');
     onCreated();
   };
+
+  const studentPicker = (
+    <Box sx={{ mt: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+        <Typography variant="subtitle2">
+          Assign Students
+          {selectedStudentIds.length > 0 && (
+            <Chip
+              label={`${selectedStudentIds.length} selected`}
+              size="small"
+              color="primary"
+              sx={{ ml: 1 }}
+            />
+          )}
+        </Typography>
+        <Box>
+          <Button
+            size="small"
+            onClick={() => setSelectedStudentIds(students.map((s) => s.id))}
+            disabled={students.length === 0}
+          >
+            Select All
+          </Button>
+          <Button
+            size="small"
+            onClick={() => setSelectedStudentIds([])}
+            disabled={selectedStudentIds.length === 0}
+          >
+            Deselect All
+          </Button>
+        </Box>
+      </Box>
+      <TextField
+        fullWidth
+        size="small"
+        placeholder="Search students..."
+        value={studentSearch}
+        onChange={(e) => setStudentSearch(e.target.value)}
+        sx={{ mb: 1 }}
+      />
+      <Box
+        sx={{
+          maxHeight: 180,
+          overflow: 'auto',
+          border: 1,
+          borderColor: 'divider',
+          borderRadius: 1,
+          px: 1,
+        }}
+      >
+        {filteredStudents.length === 0 ? (
+          <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+            {students.length === 0 ? 'No active students found' : 'No matching students'}
+          </Typography>
+        ) : (
+          <FormGroup>
+            {filteredStudents.map((student) => (
+              <FormControlLabel
+                key={student.id}
+                control={
+                  <Checkbox
+                    checked={selectedStudentIds.includes(student.id)}
+                    onChange={() => handleStudentToggle(student.id)}
+                    size="small"
+                  />
+                }
+                label={`${student.firstName} ${student.lastName}`}
+              />
+            ))}
+          </FormGroup>
+        )}
+      </Box>
+    </Box>
+  );
 
   const classTypeSelect = (value, onChange, name) => (
     <FormControl fullWidth margin="normal" required>
@@ -321,6 +424,8 @@ export default function CreateSessionDialog({ open, onClose, onCreated, initialD
               rows={3}
               placeholder="Any special instructions or details for this session"
             />
+
+            {studentPicker}
           </DialogContent>
 
           <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -446,6 +551,8 @@ export default function CreateSessionDialog({ open, onClose, onCreated, initialD
               rows={2}
               placeholder="Any special instructions for all sessions"
             />
+
+            {studentPicker}
           </DialogContent>
 
           <DialogActions sx={{ px: 3, pb: 2 }}>

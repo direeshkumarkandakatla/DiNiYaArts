@@ -1,6 +1,6 @@
 # DiNiYa Arts Studio
 
-A web application for managing art, painting, and yoga sessions — built for a small studio to handle session scheduling, student management, attendance tracking, and more.
+A web application for managing art, painting, and yoga sessions — built for a small studio to handle session scheduling, student management, attendance tracking, billing, and more.
 
 ## Built With CLI Pair Programming
 
@@ -15,6 +15,7 @@ This project was built entirely through **pair programming with [Claude Code](ht
 **Timeline:**
 - **Day 1 (Feb 16)** — Project setup, data models, backend API (auth, sessions, class types), frontend foundation (React + MUI), session calendar with CRUD, bug fixes (timezone, calendar views, sidebar layout), color theme redesign, Serilog logging, bulk/recurring session creation
 - **Day 2 (Feb 17)** — Student management, age group tracking, student link request system with admin approval, collapsible sidebar, role-based route protection, public landing page, GitHub setup
+- **Day 3 (Feb 20)** — Attendance tracking with bulk marking, billing module (attendance-driven billing, package enrollment, payment recording), class type management with default pricing, user management page, session status lifecycle (Scheduled/Completed/Cancelled), billing dashboard with expandable session-level breakdown, parent "My Dues" view, month/year filters for attendance history
 
 ## Tech Stack
 
@@ -36,29 +37,61 @@ This project was built entirely through **pair programming with [Claude Code](ht
 
 ## Features
 
-### Implemented
+### Core
 - [x] Public landing page with studio introduction
 - [x] Email/password authentication with JWT
 - [x] Role-based access control (Administrator, Instructor, Student, Parent)
+- [x] Multi-role support with role switching
+
+### Session Management
 - [x] Session scheduling with calendar view (month/week/day)
 - [x] Single and bulk/recurring session creation
 - [x] Session CRUD with edit and delete
-- [x] Class type management (Painting, with extensible model)
-- [x] Student management with search and age group tracking
+- [x] Session status lifecycle (Scheduled, Completed, Cancelled)
+- [x] Bulk-complete past sessions
+- [x] UTC date handling with local timezone display
+
+### Student Management
+- [x] Student CRUD with search and age group tracking
 - [x] Student link request system (claim existing / create new, with admin approval)
+- [x] Student-user linking (Self or Parent relationship)
+- [x] Admin direct linking of students to users
+
+### Attendance
+- [x] Per-session attendance marking (Assigned, Present, Absent, Late, Excused)
+- [x] Bulk attendance operations (assign all, mark all present)
+- [x] Student attendance history with month/year filter pills
+- [x] Attendance rate statistics
+
+### Billing
+- [x] Class type management with default session pricing
+- [x] Package definitions (e.g., "4-Session Pack" at discounted rate)
+- [x] Student package enrollment (single and bulk)
+- [x] Attendance-driven billing (every attended session generates a charge)
+- [x] Package rate for enrolled sessions, default rate for extras/unenrolled
+- [x] Payment and discount recording
+- [x] Admin billing dashboard with per-student expandable breakdown
+- [x] Parent/Student "My Dues" view with session-level charges
+
+### Admin Tools
+- [x] User management (list users, assign/remove roles)
+- [x] Class type management with color coding and default pricing
+- [x] Package definition management
+- [x] Link request approval/rejection with notes
+- [x] Clear resolved link requests
+
+### UI/UX
 - [x] Collapsible sidebar with role-aware navigation
 - [x] Responsive layout (mobile + desktop)
-- [x] UTC date handling with local timezone display
 - [x] Structured logging with Serilog
+- [x] Color-coded calendar events by class type
 
-### Phase 2 (Planned)
-- [ ] Attendance tracking and reporting
-- [ ] Photo/video uploads for sessions and students
+### Planned
 - [ ] Google, Facebook, Apple authentication
-- [ ] Additional class types (Yoga, etc.)
+- [ ] Photo/video uploads for sessions and students
 - [ ] CMS for landing page content management
-- [ ] Payment tracking
 - [ ] Analytics dashboard
+- [ ] Azure deployment
 
 ## Project Structure
 
@@ -66,59 +99,48 @@ This project was built entirely through **pair programming with [Claude Code](ht
 DiNiYaArts/
 ├── backend/
 │   └── DiNiYaArts.Api/
-│       ├── Controllers/       # API controllers (Auth, Sessions, Students, ClassTypes, LinkRequests)
-│       ├── Data/              # DbContext with Fluent API configuration and seed data
+│       ├── Controllers/       # 9 API controllers (see backend/README.md)
+│       ├── Data/              # DbContext with Fluent API and seed data
 │       ├── DTOs/              # Request/response data transfer objects
 │       ├── Middleware/        # Request logging and exception handling
 │       ├── Migrations/        # EF Core database migrations
-│       ├── Models/            # Entity models (User, Session, Student, Attendance, etc.)
+│       ├── Models/            # 9 entity models + enums
 │       ├── Program.cs         # App configuration and middleware pipeline
 │       └── appsettings.json   # Configuration (JWT, Serilog, connection string)
 ├── frontend/
 │   └── src/
-│       ├── components/        # Reusable UI components (Layout, Dialogs, Route guards)
-│       ├── context/           # React Context (AuthContext)
-│       ├── pages/             # Page components (Landing, Dashboard, Calendar, Students, etc.)
+│       ├── components/        # 8 reusable UI components
+│       ├── context/           # AuthContext for global auth state
+│       ├── pages/             # 13 page components
 │       ├── services/          # API client with axios interceptors
 │       └── App.jsx            # Routes and MUI theme configuration
 ├── DiNiYaArts.slnx            # Visual Studio solution file
 └── README.md
 ```
 
+Each folder contains its own `README.md` with detailed documentation. See:
+- [`backend/README.md`](backend/README.md) — Backend architecture, API overview, data flow
+- [`backend/DiNiYaArts.Api/Controllers/README.md`](backend/DiNiYaArts.Api/Controllers/README.md) — All API endpoints
+- [`backend/DiNiYaArts.Api/Models/README.md`](backend/DiNiYaArts.Api/Models/README.md) — Data models and relationships
+- [`backend/DiNiYaArts.Api/DTOs/README.md`](backend/DiNiYaArts.Api/DTOs/README.md) — DTO reference
+- [`backend/DiNiYaArts.Api/Data/README.md`](backend/DiNiYaArts.Api/Data/README.md) — Database context and migrations
+- [`backend/DiNiYaArts.Api/Middleware/README.md`](backend/DiNiYaArts.Api/Middleware/README.md) — Custom middleware
+- [`frontend/README.md`](frontend/README.md) — Frontend architecture, component hierarchy
+- [`frontend/src/pages/README.md`](frontend/src/pages/README.md) — All page components
+- [`frontend/src/components/README.md`](frontend/src/components/README.md) — Reusable components
+- [`frontend/src/services/README.md`](frontend/src/services/README.md) — API service layer
+- [`frontend/src/context/README.md`](frontend/src/context/README.md) — Auth context
+
 ## Roles & Access
 
 | Role | Access |
 |------|--------|
-| **Administrator** | Full access — manage sessions, students, class types, approve link requests |
-| **Instructor** | Manage sessions, students, approve link requests |
-| **Student** | View sessions, calendar. Claim/create student profile |
-| **Parent** | View sessions, calendar. Claim/manage children's profiles |
+| **Administrator** | Full access — manage sessions, students, class types, packages, billing, users, approve link requests |
+| **Instructor** | Manage sessions, students, attendance, billing. Approve link requests. Can only edit/delete own sessions |
+| **Student** | View sessions/calendar. Claim/create student profile. View own attendance and billing ("My Dues") |
+| **Parent** | View sessions/calendar. Claim/manage children's profiles. View children's attendance and billing ("My Dues") |
 
-A user can have multiple roles. Role checks happen on both frontend (route guards) and backend (endpoint authorization).
-
-## API Endpoints
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/auth/register` | Public | Register new user |
-| POST | `/api/auth/login` | Public | Login and get JWT |
-| GET | `/api/auth/me` | All | Get current user info |
-| GET | `/api/sessions` | All | List sessions (with date/type filters) |
-| POST | `/api/sessions` | Admin/Instructor | Create single session |
-| POST | `/api/sessions/bulk` | Admin/Instructor | Create recurring sessions |
-| PUT | `/api/sessions/:id` | Admin/Instructor | Update session |
-| DELETE | `/api/sessions/:id` | Admin/Instructor | Delete session |
-| GET | `/api/classtypes` | All | List class types |
-| GET | `/api/students` | All | List students (with search) |
-| POST | `/api/students` | Admin/Instructor | Create student |
-| PUT | `/api/students/:id` | Admin/Instructor | Update student |
-| DELETE | `/api/students/:id` | Admin/Instructor | Delete student |
-| GET | `/api/studentlinkrequests/my` | All | My link requests |
-| POST | `/api/studentlinkrequests/claim` | All | Claim existing student |
-| POST | `/api/studentlinkrequests/create-student` | All | Request new student profile |
-| GET | `/api/studentlinkrequests/pending` | Admin/Instructor | Pending requests |
-| PUT | `/api/studentlinkrequests/:id/approve` | Admin/Instructor | Approve request |
-| PUT | `/api/studentlinkrequests/:id/reject` | Admin/Instructor | Reject request |
+A user can have multiple roles. Role checks happen on both frontend (route guards) and backend (endpoint authorization). Users can switch between their active role via the sidebar.
 
 ## Getting Started
 
@@ -134,6 +156,11 @@ dotnet ef database update
 dotnet run
 ```
 The API runs on `https://localhost:7199` by default.
+
+A default admin account is created on first run:
+- Email: `admin@diniyaarts.com`
+- Password: `Admin@123`
+(Configurable in `appsettings.json` under `DefaultAdmin`)
 
 ### Frontend
 ```bash
@@ -151,5 +178,5 @@ VITE_API_URL=https://localhost:7199/api
 
 ## Development Timeline
 - **Start Date:** February 16, 2026
-- **Status:** In active development
+- **Status:** In active development (preparing for Azure deployment)
 - **Built with:** [Claude Code](https://claude.ai/claude-code) (CLI pair programming)

@@ -33,11 +33,6 @@ public class AuthController : ControllerBase
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        // Validate role
-        var validRoles = new[] { "Administrator", "Instructor", "Student", "Parent" };
-        if (!validRoles.Contains(model.Role))
-            return BadRequest(new { message = "Invalid role specified" });
-
         var user = new ApplicationUser
         {
             UserName = model.Email,
@@ -52,8 +47,9 @@ public class AuthController : ControllerBase
         if (!result.Succeeded)
             return BadRequest(new { errors = result.Errors });
 
-        // Add user to role
-        await _userManager.AddToRoleAsync(user, model.Role);
+        // No role assigned at registration — roles are assigned via:
+        // - Link request approval (Student/Parent)
+        // - Admin user management (Instructor/Administrator)
 
         var token = await GenerateJwtToken(user);
 
@@ -103,7 +99,7 @@ public class AuthController : ControllerBase
 
         return Ok(new
         {
-            user.Id,
+            UserId = user.Id,
             user.Email,
             user.FirstName,
             user.LastName,

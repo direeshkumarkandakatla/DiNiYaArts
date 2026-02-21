@@ -1,5 +1,12 @@
 namespace DiNiYaArts.Api.Models;
 
+public enum SessionStatus
+{
+    Scheduled,
+    Completed,
+    Cancelled
+}
+
 public class Session
 {
     public int Id { get; set; }
@@ -8,6 +15,7 @@ public class Session
     public int DurationMinutes { get; set; }  // Duration set by instructor
     public int MaxStudents { get; set; } = 10;
     public string? Notes { get; set; }
+    public SessionStatus Status { get; set; } = SessionStatus.Scheduled;
     public string CreatedByUserId { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

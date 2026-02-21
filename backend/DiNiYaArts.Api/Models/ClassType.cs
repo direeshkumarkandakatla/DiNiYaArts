@@ -7,6 +7,7 @@ public class ClassType
     public string Color { get; set; } = "#3B82F6"; // For calendar display
     public string? Description { get; set; }
     public AgeGroup TargetAgeGroup { get; set; } = AgeGroup.AllAges;
+    public decimal DefaultSessionPrice { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

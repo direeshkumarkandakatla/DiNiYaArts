@@ -35,6 +35,7 @@ public class SessionsController : ControllerBase
             .Include(s => s.ClassType)
             .Include(s => s.CreatedBy)
             .Include(s => s.Attendances)
+                .ThenInclude(a => a.Student)
             .AsQueryable();
 
         // Filter by date range (useful for calendar view)
@@ -60,8 +61,12 @@ public class SessionsController : ControllerBase
                 EndDateTime = s.StartDateTime.AddMinutes(s.DurationMinutes),
                 DurationMinutes = s.DurationMinutes,
                 MaxStudents = s.MaxStudents,
-                CurrentStudentCount = s.Attendances.Count,
+                CurrentStudentCount = s.Status == SessionStatus.Scheduled
+                    ? s.Attendances.Count(a => a.Student.IsActive)
+                    : s.Attendances.Count,
                 Notes = s.Notes,
+                Status = s.Status.ToString(),
+                CreatedByUserId = s.CreatedByUserId,
                 CreatedByName = (s.CreatedBy.FirstName ?? "") + " " + (s.CreatedBy.LastName ?? ""),
                 CreatedAt = s.CreatedAt
             })
@@ -80,6 +85,7 @@ public class SessionsController : ControllerBase
             .Include(s => s.ClassType)
             .Include(s => s.CreatedBy)
             .Include(s => s.Attendances)
+                .ThenInclude(a => a.Student)
             .FirstOrDefaultAsync(s => s.Id == id);
 
         if (session == null)
@@ -98,8 +104,12 @@ public class SessionsController : ControllerBase
             EndDateTime = session.StartDateTime.AddMinutes(session.DurationMinutes),
             DurationMinutes = session.DurationMinutes,
             MaxStudents = session.MaxStudents,
-            CurrentStudentCount = session.Attendances.Count,
+            CurrentStudentCount = session.Status == SessionStatus.Scheduled
+                ? session.Attendances.Count(a => a.Student.IsActive)
+                : session.Attendances.Count,
             Notes = session.Notes,
+            Status = session.Status.ToString(),
+            CreatedByUserId = session.CreatedByUserId,
             CreatedByName = (session.CreatedBy.FirstName ?? "") + " " + (session.CreatedBy.LastName ?? ""),
             CreatedAt = session.CreatedAt
         });
@@ -140,6 +150,28 @@ public class SessionsController : ControllerBase
 
         _logger.LogInformation("Session {SessionId} created successfully by user {UserId}", session.Id, userId);
 
+        // Assign students if provided
+        var assignedCount = 0;
+        if (dto.StudentIds is { Count: > 0 })
+        {
+            var validStudentIds = await _context.Students
+                .Where(s => dto.StudentIds.Contains(s.Id))
+                .Select(s => s.Id)
+                .ToListAsync();
+
+            var attendances = validStudentIds.Select(studentId => new Attendance
+            {
+                SessionId = session.Id,
+                StudentId = studentId,
+                Status = AttendanceStatus.Assigned,
+                MarkedAt = DateTime.UtcNow
+            }).ToList();
+
+            _context.Attendances.AddRange(attendances);
+            await _context.SaveChangesAsync();
+            assignedCount = attendances.Count;
+        }
+
         // Reload with navigation properties for response
         var createdSession = await _context.Sessions
             .Include(s => s.ClassType)
@@ -156,8 +188,10 @@ public class SessionsController : ControllerBase
             EndDateTime = createdSession.StartDateTime.AddMinutes(createdSession.DurationMinutes),
             DurationMinutes = createdSession.DurationMinutes,
             MaxStudents = createdSession.MaxStudents,
-            CurrentStudentCount = 0,
+            CurrentStudentCount = assignedCount,
             Notes = createdSession.Notes,
+            Status = createdSession.Status.ToString(),
+            CreatedByUserId = createdSession.CreatedByUserId,
             CreatedByName = (createdSession.CreatedBy.FirstName ?? "") + " " + (createdSession.CreatedBy.LastName ?? ""),
             CreatedAt = createdSession.CreatedAt
         };
@@ -204,7 +238,12 @@ public class SessionsController : ControllerBase
         {
             if (dto.DaysOfWeek.Contains(currentDate.DayOfWeek))
             {
-                var startDateTime = currentDate.Add(dto.StartTime);
+                // Combine date + time, then convert local to UTC using client's timezone offset
+                // JS getTimezoneOffset() returns (UTC - Local) in minutes, so UTC = Local + offset
+                var localDateTime = currentDate.Add(dto.StartTime);
+                var startDateTime = DateTime.SpecifyKind(
+                    localDateTime.AddMinutes(dto.TimezoneOffsetMinutes),
+                    DateTimeKind.Utc);
                 sessions.Add(new Session
                 {
                     ClassTypeId = dto.ClassTypeId,
@@ -234,6 +273,30 @@ public class SessionsController : ControllerBase
 
         _logger.LogInformation("Bulk created {Count} sessions by user {UserId}", sessions.Count, userId);
 
+        // Assign students if provided
+        var assignedCount = 0;
+        if (dto.StudentIds is { Count: > 0 })
+        {
+            var validStudentIds = await _context.Students
+                .Where(s => dto.StudentIds.Contains(s.Id))
+                .Select(s => s.Id)
+                .ToListAsync();
+
+            var attendances = sessions.SelectMany(session =>
+                validStudentIds.Select(studentId => new Attendance
+                {
+                    SessionId = session.Id,
+                    StudentId = studentId,
+                    Status = AttendanceStatus.Assigned,
+                    MarkedAt = DateTime.UtcNow
+                })
+            ).ToList();
+
+            _context.Attendances.AddRange(attendances);
+            await _context.SaveChangesAsync();
+            assignedCount = validStudentIds.Count;
+        }
+
         // Reload with navigation properties for response
         var sessionIds = sessions.Select(s => s.Id).ToList();
         var createdSessions = await _context.Sessions
@@ -251,8 +314,10 @@ public class SessionsController : ControllerBase
                 EndDateTime = s.StartDateTime.AddMinutes(s.DurationMinutes),
                 DurationMinutes = s.DurationMinutes,
                 MaxStudents = s.MaxStudents,
-                CurrentStudentCount = 0,
+                CurrentStudentCount = assignedCount,
                 Notes = s.Notes,
+                Status = s.Status.ToString(),
+                CreatedByUserId = s.CreatedByUserId,
                 CreatedByName = (s.CreatedBy.FirstName ?? "") + " " + (s.CreatedBy.LastName ?? ""),
                 CreatedAt = s.CreatedAt
             })
@@ -272,12 +337,27 @@ public class SessionsController : ControllerBase
             .Include(s => s.ClassType)
             .Include(s => s.CreatedBy)
             .Include(s => s.Attendances)
+                .ThenInclude(a => a.Student)
             .FirstOrDefaultAsync(s => s.Id == id);
 
         if (session == null)
         {
             _logger.LogWarning("Session {SessionId} not found for update", id);
             return NotFound(new { message = "Session not found" });
+        }
+
+        // Block updates when session is Completed or Cancelled
+        if (session.Status != SessionStatus.Scheduled)
+        {
+            return BadRequest(new { message = $"Cannot edit a session with status '{session.Status}'. Reopen it first." });
+        }
+
+        // Instructors can only edit their own sessions
+        var isAdmin = User.IsInRole("Administrator");
+        if (!isAdmin && session.CreatedByUserId != userId)
+        {
+            _logger.LogWarning("Instructor {UserId} tried to update session {SessionId} owned by {OwnerId}", userId, id, session.CreatedByUserId);
+            return Forbid();
         }
 
         // Update only provided fields
@@ -315,8 +395,10 @@ public class SessionsController : ControllerBase
             EndDateTime = session.StartDateTime.AddMinutes(session.DurationMinutes),
             DurationMinutes = session.DurationMinutes,
             MaxStudents = session.MaxStudents,
-            CurrentStudentCount = session.Attendances.Count,
+            CurrentStudentCount = session.Attendances.Count(a => a.Student.IsActive),
             Notes = session.Notes,
+            Status = session.Status.ToString(),
+            CreatedByUserId = session.CreatedByUserId,
             CreatedByName = (session.CreatedBy.FirstName ?? "") + " " + (session.CreatedBy.LastName ?? ""),
             CreatedAt = session.CreatedAt
         });
@@ -336,10 +418,73 @@ public class SessionsController : ControllerBase
             return NotFound(new { message = "Session not found" });
         }
 
+        // Block deletion of Completed sessions
+        if (session.Status == SessionStatus.Completed)
+        {
+            return BadRequest(new { message = "Cannot delete a completed session." });
+        }
+
+        // Instructors can only delete their own sessions
+        var isAdmin = User.IsInRole("Administrator");
+        if (!isAdmin && session.CreatedByUserId != userId)
+        {
+            _logger.LogWarning("Instructor {UserId} tried to delete session {SessionId} owned by {OwnerId}", userId, id, session.CreatedByUserId);
+            return Forbid();
+        }
+
         _context.Sessions.Remove(session);
         await _context.SaveChangesAsync();
 
         _logger.LogInformation("Session {SessionId} deleted successfully", id);
         return NoContent();
+    }
+
+    [HttpPatch("{id}/status")]
+    [Authorize(Roles = "Administrator,Instructor")]
+    public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateSessionStatusDto dto)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        _logger.LogInformation("User {UserId} updating status of session {SessionId} to {Status}", userId, id, dto.Status);
+
+        var session = await _context.Sessions.FindAsync(id);
+        if (session == null)
+            return NotFound(new { message = "Session not found" });
+
+        if (!Enum.TryParse<SessionStatus>(dto.Status, true, out var newStatus))
+            return BadRequest(new { message = $"Invalid status '{dto.Status}'. Valid values: Scheduled, Completed, Cancelled." });
+
+        // Instructors can only change status of their own sessions
+        var isAdmin = User.IsInRole("Administrator");
+        if (!isAdmin && session.CreatedByUserId != userId)
+            return Forbid();
+
+        session.Status = newStatus;
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Session {SessionId} status changed to {Status}", id, newStatus);
+        return Ok(new { message = $"Session status updated to {newStatus}", status = newStatus.ToString() });
+    }
+
+    [HttpPost("bulk-complete")]
+    [Authorize(Roles = "Administrator,Instructor")]
+    public async Task<IActionResult> BulkComplete()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        _logger.LogInformation("User {UserId} triggering bulk-complete for past scheduled sessions", userId);
+
+        var now = DateTime.UtcNow;
+        var pastScheduled = await _context.Sessions
+            .Where(s => s.Status == SessionStatus.Scheduled && s.StartDateTime < now)
+            .ToListAsync();
+
+        foreach (var session in pastScheduled)
+        {
+            session.Status = SessionStatus.Completed;
+        }
+
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Bulk-completed {Count} past sessions", pastScheduled.Count);
+        return Ok(new { message = $"{pastScheduled.Count} session(s) marked as completed.", count = pastScheduled.Count });
     }
 }

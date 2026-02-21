@@ -19,6 +19,7 @@ import GroupsIcon from '@mui/icons-material/Groups';
 import EmailIcon from '@mui/icons-material/Email';
 import PhoneIcon from '@mui/icons-material/Phone';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
+import InstagramIcon from '@mui/icons-material/Instagram';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import ChildCareIcon from '@mui/icons-material/ChildCare';
 import ColorLensIcon from '@mui/icons-material/ColorLens';
@@ -406,31 +407,40 @@ export default function Landing() {
             </Typography>
           </Box>
 
-          <Grid container spacing={4} justifyContent="center">
+          <Grid container spacing={2} justifyContent="center">
             {[
               {
                 icon: <EmailIcon sx={{ fontSize: 36 }} />,
                 title: 'Email',
-                detail: 'hello@diniyaarts.com',
+                detail: 'diniya.artsstudio@gmail.com',
                 color: '#E8EAF6',
                 iconColor: '#7986CB',
               },
               {
                 icon: <PhoneIcon sx={{ fontSize: 36 }} />,
                 title: 'Phone',
-                detail: 'Coming soon',
+                detail: '+1 (425)-633-4589',
                 color: '#E0F2F1',
                 iconColor: '#4DB6AC',
               },
               {
                 icon: <LocationOnIcon sx={{ fontSize: 36 }} />,
                 title: 'Location',
-                detail: 'Coming soon',
+                detail: '7320 132nd PL SE, Snohomish, WA 98296',
+                href: 'https://www.google.com/maps/search/?api=1&query=7320+132nd+PL+SE%2C+Snohomish%2C+WA+98296',
                 color: '#FFF3E0',
                 iconColor: '#FFB74D',
               },
+              {
+                icon: <InstagramIcon sx={{ fontSize: 36 }} />,
+                title: 'Instagram',
+                detail: '@diniya.artsstudio',
+                href: 'https://www.instagram.com/diniya.artsstudio/',
+                color: '#FCE4EC',
+                iconColor: '#E1306C',
+              },
             ].map((item) => (
-              <Grid size={{ xs: 12, sm: 4 }} key={item.title}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }} key={item.title}>
                 <Card
                   elevation={0}
                   sx={{
@@ -462,7 +472,18 @@ export default function Landing() {
                       {item.title}
                     </Typography>
                     <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                      {item.detail}
+                      {item.href ? (
+                        <a
+                          href={item.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: 'inherit', textDecoration: 'none' }}
+                        >
+                          {item.detail}
+                        </a>
+                      ) : (
+                        item.detail
+                      )}
                     </Typography>
                   </CardContent>
                 </Card>

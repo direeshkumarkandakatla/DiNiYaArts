@@ -18,6 +18,8 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
+import DoneAllIcon from '@mui/icons-material/DoneAll';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import { sessionsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import CreateSessionDialog from '../components/CreateSessionDialog';
@@ -32,9 +34,12 @@ export default function SessionList() {
   const [detailOpen, setDetailOpen] = useState(false);
   const { user } = useAuth();
 
-  const isAdminOrInstructor = user?.roles?.some(
-    (r) => r === 'Administrator' || r === 'Instructor'
-  );
+  const isAdmin = user?.roles?.includes('Administrator');
+  const isInstructor = user?.roles?.includes('Instructor');
+  const isAdminOrInstructor = isAdmin || isInstructor;
+
+  const canEditSession = (session) =>
+    isAdmin || (isInstructor && session.createdByUserId === user?.userId);
 
   const fetchSessions = async () => {
     try {
@@ -64,6 +69,23 @@ export default function SessionList() {
       setError('Failed to delete session');
     }
   };
+
+  const handleBulkComplete = async () => {
+    try {
+      const response = await sessionsAPI.bulkComplete();
+      const count = response.data?.count || 0;
+      if (count > 0) {
+        fetchSessions();
+      }
+      setError('');
+      alert(`${count} session(s) marked as completed.`);
+    } catch (err) {
+      setError('Failed to bulk-complete sessions');
+    }
+  };
+
+  const statusColor = (status) =>
+    status === 'Completed' ? 'success' : status === 'Cancelled' ? 'error' : 'default';
 
   const formatDate = (dateStr) => {
     const date = new Date(dateStr);
@@ -95,13 +117,22 @@ export default function SessionList() {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h5">Sessions</Typography>
         {isAdminOrInstructor && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setCreateOpen(true)}
-          >
-            New Session
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              variant="outlined"
+              startIcon={<DoneAllIcon />}
+              onClick={handleBulkComplete}
+            >
+              Complete Past Sessions
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateOpen(true)}
+            >
+              New Session
+            </Button>
+          </Box>
         )}
       </Box>
 
@@ -131,6 +162,7 @@ export default function SessionList() {
                 <TableCell>Duration</TableCell>
                 <TableCell>Students</TableCell>
                 <TableCell>Instructor</TableCell>
+                <TableCell>Status</TableCell>
                 {isAdminOrInstructor && <TableCell align="right">Actions</TableCell>}
               </TableRow>
             </TableHead>
@@ -163,25 +195,48 @@ export default function SessionList() {
                     />
                   </TableCell>
                   <TableCell>{session.createdByName}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={session.status || 'Scheduled'}
+                      color={statusColor(session.status)}
+                      size="small"
+                    />
+                  </TableCell>
                   {isAdminOrInstructor && (
                     <TableCell align="right">
-                      <IconButton
-                        color="primary"
-                        size="small"
-                        onClick={() => {
-                          setEditSession(session);
-                          setDetailOpen(true);
-                        }}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        color="error"
-                        size="small"
-                        onClick={() => handleDelete(session.id)}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
+                      {canEditSession(session) && session.status === 'Scheduled' ? (
+                        <>
+                          <IconButton
+                            color="primary"
+                            size="small"
+                            onClick={() => {
+                              setEditSession(session);
+                              setDetailOpen(true);
+                            }}
+                          >
+                            <EditIcon />
+                          </IconButton>
+                          <IconButton
+                            color="error"
+                            size="small"
+                            onClick={() => handleDelete(session.id)}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </>
+                      ) : (
+                        <IconButton
+                          color="primary"
+                          size="small"
+                          onClick={() => {
+                            setEditSession(session);
+                            setDetailOpen(true);
+                          }}
+                          title="View details"
+                        >
+                          <VisibilityIcon />
+                        </IconButton>
+                      )}
                     </TableCell>
                   )}
                 </TableRow>

@@ -143,6 +143,9 @@ namespace DiNiYaArts.Api.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<decimal>("DefaultSessionPrice")
+                        .HasColumnType("decimal(10,2)");
+
                     b.Property<string>("Description")
                         .HasColumnType("TEXT");
 
@@ -165,12 +168,82 @@ namespace DiNiYaArts.Api.Migrations
                         {
                             Id = 1,
                             Color = "#FF6B6B",
-                            CreatedAt = new DateTime(2026, 2, 17, 6, 59, 56, 854, DateTimeKind.Utc).AddTicks(3652),
+                            CreatedAt = new DateTime(2026, 2, 20, 19, 23, 11, 865, DateTimeKind.Utc).AddTicks(1252),
+                            DefaultSessionPrice = 0m,
                             Description = "Creative painting classes for all skill levels",
                             IsActive = true,
                             Name = "Painting",
                             TargetAgeGroup = 7
                         });
+                });
+
+            modelBuilder.Entity("DiNiYaArts.Api.Models.PackageDefinition", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ClassTypeId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("SessionCount")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClassTypeId");
+
+                    b.ToTable("PackageDefinitions");
+                });
+
+            modelBuilder.Entity("DiNiYaArts.Api.Models.Payment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("Discount")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("PaymentDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RecordedByUserId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecordedByUserId");
+
+                    b.HasIndex("StudentId");
+
+                    b.ToTable("Payments");
                 });
 
             modelBuilder.Entity("DiNiYaArts.Api.Models.Session", b =>
@@ -200,6 +273,9 @@ namespace DiNiYaArts.Api.Migrations
 
                     b.Property<DateTime>("StartDateTime")
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -322,6 +398,52 @@ namespace DiNiYaArts.Api.Migrations
                     b.ToTable("StudentLinkRequests");
                 });
 
+            modelBuilder.Entity("DiNiYaArts.Api.Models.StudentPackage", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("BillingMonth")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("BillingYear")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PackageDefinitionId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal>("PackagePrice")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("SessionCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("PackageDefinitionId");
+
+                    b.HasIndex("StudentId", "PackageDefinitionId", "BillingYear", "BillingMonth")
+                        .IsUnique();
+
+                    b.ToTable("StudentPackages");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
                 {
                     b.Property<string>("Id")
@@ -351,28 +473,28 @@ namespace DiNiYaArts.Api.Migrations
                         new
                         {
                             Id = "1",
-                            ConcurrencyStamp = "3a116310-c8cc-4610-b9ca-8187c3d01291",
+                            ConcurrencyStamp = "8fc1cbc4-f893-4bee-b664-6f5aef625e0c",
                             Name = "Administrator",
                             NormalizedName = "ADMINISTRATOR"
                         },
                         new
                         {
                             Id = "2",
-                            ConcurrencyStamp = "9bb4cc99-c4c8-46e9-8527-2a22a90614ff",
+                            ConcurrencyStamp = "607ab32a-53ee-4b18-a127-1ecf62b67d5f",
                             Name = "Instructor",
                             NormalizedName = "INSTRUCTOR"
                         },
                         new
                         {
                             Id = "3",
-                            ConcurrencyStamp = "524a5944-86ef-44e3-afeb-a1f87cebd823",
+                            ConcurrencyStamp = "fc7dd7c8-b410-478a-b68a-6a51b3b49690",
                             Name = "Student",
                             NormalizedName = "STUDENT"
                         },
                         new
                         {
                             Id = "4",
-                            ConcurrencyStamp = "73782357-2746-498e-ad67-0818855673ba",
+                            ConcurrencyStamp = "2c0a9d0e-070f-4fdd-89fb-6b998f6a4aeb",
                             Name = "Parent",
                             NormalizedName = "PARENT"
                         });
@@ -499,6 +621,36 @@ namespace DiNiYaArts.Api.Migrations
                     b.Navigation("Student");
                 });
 
+            modelBuilder.Entity("DiNiYaArts.Api.Models.PackageDefinition", b =>
+                {
+                    b.HasOne("DiNiYaArts.Api.Models.ClassType", "ClassType")
+                        .WithMany()
+                        .HasForeignKey("ClassTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ClassType");
+                });
+
+            modelBuilder.Entity("DiNiYaArts.Api.Models.Payment", b =>
+                {
+                    b.HasOne("DiNiYaArts.Api.Models.ApplicationUser", "RecordedBy")
+                        .WithMany()
+                        .HasForeignKey("RecordedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DiNiYaArts.Api.Models.Student", "Student")
+                        .WithMany("Payments")
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("RecordedBy");
+
+                    b.Navigation("Student");
+                });
+
             modelBuilder.Entity("DiNiYaArts.Api.Models.Session", b =>
                 {
                     b.HasOne("DiNiYaArts.Api.Models.ClassType", "ClassType")
@@ -556,6 +708,33 @@ namespace DiNiYaArts.Api.Migrations
                     b.Navigation("RequestedBy");
 
                     b.Navigation("ReviewedBy");
+
+                    b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("DiNiYaArts.Api.Models.StudentPackage", b =>
+                {
+                    b.HasOne("DiNiYaArts.Api.Models.ApplicationUser", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DiNiYaArts.Api.Models.PackageDefinition", "PackageDefinition")
+                        .WithMany()
+                        .HasForeignKey("PackageDefinitionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DiNiYaArts.Api.Models.Student", "Student")
+                        .WithMany("Packages")
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("PackageDefinition");
 
                     b.Navigation("Student");
                 });
@@ -633,6 +812,10 @@ namespace DiNiYaArts.Api.Migrations
             modelBuilder.Entity("DiNiYaArts.Api.Models.Student", b =>
                 {
                     b.Navigation("Attendances");
+
+                    b.Navigation("Packages");
+
+                    b.Navigation("Payments");
                 });
 #pragma warning restore 612, 618
         }

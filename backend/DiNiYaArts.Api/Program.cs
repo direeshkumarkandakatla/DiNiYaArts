@@ -154,6 +154,53 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+// Seed first Admin user on startup
+using (var scope = app.Services.CreateScope())
+{
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+
+    // Ensure roles exist (in case migrations haven't seeded them yet)
+    var roles = new[] { "Administrator", "Instructor", "Student", "Parent" };
+    foreach (var role in roles)
+    {
+        if (!await roleManager.RoleExistsAsync(role))
+            await roleManager.CreateAsync(new IdentityRole(role));
+    }
+
+    // Create default admin if not exists
+    var adminSettings = app.Configuration.GetSection("DefaultAdmin");
+    var adminEmail = adminSettings["Email"] ?? "admin@diniyaarts.com";
+    var adminPassword = adminSettings["Password"] ?? "Admin@123";
+    var adminFirstName = adminSettings["FirstName"] ?? "Admin";
+    var adminLastName = adminSettings["LastName"] ?? "DiNiYaArts";
+
+    var existingAdmin = await userManager.FindByEmailAsync(adminEmail);
+    if (existingAdmin == null)
+    {
+        var adminUser = new ApplicationUser
+        {
+            UserName = adminEmail,
+            Email = adminEmail,
+            FirstName = adminFirstName,
+            LastName = adminLastName,
+            EmailConfirmed = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var result = await userManager.CreateAsync(adminUser, adminPassword);
+        if (result.Succeeded)
+        {
+            await userManager.AddToRoleAsync(adminUser, "Administrator");
+            Log.Information("Default admin user created: {Email}", adminEmail);
+        }
+        else
+        {
+            Log.Warning("Failed to create default admin: {Errors}", string.Join(", ", result.Errors.Select(e => e.Description)));
+        }
+    }
+}
+
 app.Run();
 
 }

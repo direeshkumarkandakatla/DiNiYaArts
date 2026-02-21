@@ -15,45 +15,77 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
+import CleaningServicesIcon from '@mui/icons-material/CleaningServices';
 import { linkRequestsAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+
+const STATUS_TABS = [
+  { label: 'All', value: '' },
+  { label: 'Pending', value: 'Pending' },
+  { label: 'Approved', value: 'Approved' },
+  { label: 'Rejected', value: 'Rejected' },
+];
+
+const STATUS_COLORS = {
+  Pending: 'warning',
+  Approved: 'success',
+  Rejected: 'error',
+};
 
 export default function LinkRequests() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [actionLoading, setActionLoading] = useState(null); // request id being processed
+  const [actionLoading, setActionLoading] = useState(null);
   const [rejectDialog, setRejectDialog] = useState({ open: false, requestId: null });
   const [rejectNotes, setRejectNotes] = useState('');
+  const [activeTab, setActiveTab] = useState('');
+  const { activeRole } = useAuth();
+  const isAdmin = activeRole === 'Administrator';
+  const hasResolved = requests.some((r) => r.status === 'Approved' || r.status === 'Rejected');
 
-  const fetchPending = async () => {
+  const fetchRequests = async (status) => {
     try {
       setLoading(true);
-      const response = await linkRequestsAPI.getPending();
+      const response = await linkRequestsAPI.getAll(status || undefined);
       setRequests(response.data);
       setError('');
     } catch (err) {
-      setError('Failed to load pending requests');
+      setError('Failed to load requests');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchPending();
-  }, []);
+    fetchRequests(activeTab);
+  }, [activeTab]);
 
   const handleApprove = async (id) => {
     setActionLoading(id);
     try {
       await linkRequestsAPI.approve(id);
-      fetchPending();
+      fetchRequests(activeTab);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to approve request');
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const handleClearResolved = async () => {
+    if (!window.confirm('Clear all approved and rejected requests? This cannot be undone.')) return;
+    try {
+      const response = await linkRequestsAPI.clearResolved();
+      setError('');
+      fetchRequests(activeTab);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to clear resolved requests');
     }
   };
 
@@ -64,7 +96,7 @@ export default function LinkRequests() {
       await linkRequestsAPI.reject(id, { notes: rejectNotes || null });
       setRejectDialog({ open: false, requestId: null });
       setRejectNotes('');
-      fetchPending();
+      fetchRequests(activeTab);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to reject request');
     } finally {
@@ -83,19 +115,24 @@ export default function LinkRequests() {
     });
   };
 
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
   return (
     <Box>
-      <Typography variant="h5" gutterBottom>
-        Pending Link Requests
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+        <Typography variant="h5">
+          Student Link Requests
+        </Typography>
+        {isAdmin && hasResolved && (
+          <Button
+            variant="outlined"
+            color="warning"
+            size="small"
+            startIcon={<CleaningServicesIcon />}
+            onClick={handleClearResolved}
+          >
+            Clear Resolved
+          </Button>
+        )}
+      </Box>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
@@ -103,13 +140,29 @@ export default function LinkRequests() {
         </Alert>
       )}
 
-      {requests.length === 0 ? (
+      <Tabs
+        value={activeTab}
+        onChange={(_, newValue) => setActiveTab(newValue)}
+        sx={{ mb: 3 }}
+      >
+        {STATUS_TABS.map((tab) => (
+          <Tab key={tab.value} label={tab.label} value={tab.value} />
+        ))}
+      </Tabs>
+
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+          <CircularProgress />
+        </Box>
+      ) : requests.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="h6" color="text.secondary">
-            No pending requests
+            No {activeTab.toLowerCase() || ''} requests
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            When students or parents request to link their accounts, they will appear here for your approval.
+            {activeTab === 'Pending'
+              ? 'When students or parents request to link their accounts, they will appear here for your approval.'
+              : 'No matching requests found.'}
           </Typography>
         </Paper>
       ) : (
@@ -126,21 +179,26 @@ export default function LinkRequests() {
                       {req.requestedByEmail}
                     </Typography>
                   </Box>
-                  <Chip
-                    label={req.studentId ? 'Claim' : 'New Student'}
-                    size="small"
-                    color={req.studentId ? 'info' : 'secondary'}
-                    variant="outlined"
-                  />
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Chip
+                      label={req.status}
+                      size="small"
+                      color={STATUS_COLORS[req.status] || 'default'}
+                    />
+                    <Chip
+                      label={req.studentId ? 'Claim' : 'New Student'}
+                      size="small"
+                      color={req.studentId ? 'info' : 'secondary'}
+                      variant="outlined"
+                    />
+                  </Box>
                 </Box>
 
                 <Box sx={{ mt: 1.5, p: 1.5, bgcolor: 'grey.50', borderRadius: 1 }}>
                   {req.studentId ? (
-                    <>
-                      <Typography variant="body2">
-                        Wants to claim <strong>{req.studentName}</strong> as <strong>{req.linkType}</strong>
-                      </Typography>
-                    </>
+                    <Typography variant="body2">
+                      Wants to claim <strong>{req.studentName}</strong> as <strong>{req.linkType}</strong>
+                    </Typography>
                   ) : (
                     <>
                       <Typography variant="body2" sx={{ mb: 0.5 }}>
@@ -167,32 +225,47 @@ export default function LinkRequests() {
                   )}
                 </Box>
 
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                  Submitted: {formatDate(req.createdAt)}
-                </Typography>
+                <Box sx={{ mt: 1, display: 'flex', gap: 2 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Submitted: {formatDate(req.createdAt)}
+                  </Typography>
+                  {req.reviewedByName && (
+                    <Typography variant="caption" color="text.secondary">
+                      Reviewed by: {req.reviewedByName} on {formatDate(req.reviewedAt)}
+                    </Typography>
+                  )}
+                </Box>
+                {req.reviewNotes && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontStyle: 'italic' }}>
+                    Note: {req.reviewNotes}
+                  </Typography>
+                )}
               </CardContent>
-              <CardActions sx={{ px: 2, pb: 2 }}>
-                <Button
-                  variant="contained"
-                  color="success"
-                  size="small"
-                  startIcon={<CheckCircleIcon />}
-                  onClick={() => handleApprove(req.id)}
-                  disabled={actionLoading === req.id}
-                >
-                  {actionLoading === req.id ? <CircularProgress size={20} /> : 'Approve'}
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="error"
-                  size="small"
-                  startIcon={<CancelIcon />}
-                  onClick={() => setRejectDialog({ open: true, requestId: req.id })}
-                  disabled={actionLoading === req.id}
-                >
-                  Reject
-                </Button>
-              </CardActions>
+
+              {req.status === 'Pending' && (
+                <CardActions sx={{ px: 2, pb: 2 }}>
+                  <Button
+                    variant="contained"
+                    color="success"
+                    size="small"
+                    startIcon={<CheckCircleIcon />}
+                    onClick={() => handleApprove(req.id)}
+                    disabled={actionLoading === req.id}
+                  >
+                    {actionLoading === req.id ? <CircularProgress size={20} /> : 'Approve'}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    startIcon={<CancelIcon />}
+                    onClick={() => setRejectDialog({ open: true, requestId: req.id })}
+                    disabled={actionLoading === req.id}
+                  >
+                    Reject
+                  </Button>
+                </CardActions>
+              )}
             </Card>
           ))}
         </Box>

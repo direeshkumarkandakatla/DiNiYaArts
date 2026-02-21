@@ -16,14 +16,17 @@ import {
   Alert,
   TextField,
   InputAdornment,
+  Tooltip,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
+import CardGiftcardIcon from '@mui/icons-material/CardGiftcard';
 import { studentsAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import StudentDialog from '../components/StudentDialog';
+import EnrollPackageDialog from '../components/EnrollPackageDialog';
 
 export default function StudentList() {
   const [students, setStudents] = useState([]);
@@ -32,6 +35,8 @@ export default function StudentList() {
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editStudent, setEditStudent] = useState(null);
+  const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
+  const [enrollStudentId, setEnrollStudentId] = useState(null);
   const { user } = useAuth();
 
   const isAdminOrInstructor = user?.roles?.some(
@@ -94,14 +99,9 @@ export default function StudentList() {
     fetchStudents();
   };
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
+  const handleEnrollStudent = (studentId) => {
+    setEnrollStudentId(studentId || null);
+    setEnrollDialogOpen(true);
   };
 
   const calculateAge = (dateOfBirth) => {
@@ -129,13 +129,22 @@ export default function StudentList() {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h5">Students</Typography>
         {isAdminOrInstructor && (
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleOpenCreate}
-          >
-            Add Student
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              variant="outlined"
+              startIcon={<CardGiftcardIcon />}
+              onClick={() => handleEnrollStudent(null)}
+            >
+              Enroll Package
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleOpenCreate}
+            >
+              Add Student
+            </Button>
+          </Box>
         )}
       </Box>
 
@@ -199,6 +208,8 @@ export default function StudentList() {
                 <TableCell>Phone</TableCell>
                 <TableCell>Age</TableCell>
                 <TableCell>Age Group</TableCell>
+                <TableCell>Linked Account</TableCell>
+                <TableCell>Parent</TableCell>
                 <TableCell>Sessions</TableCell>
                 <TableCell>Status</TableCell>
                 {isAdminOrInstructor && <TableCell align="right">Actions</TableCell>}
@@ -227,6 +238,20 @@ export default function StudentList() {
                     </TableCell>
                     <TableCell>{student.ageGroup || '-'}</TableCell>
                     <TableCell>
+                      {student.linkedUserName ? (
+                        <Chip label={student.linkedUserName.trim()} size="small" color="info" variant="outlined" />
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">-</Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {student.parentName ? (
+                        <Chip label={student.parentName.trim()} size="small" color="secondary" variant="outlined" />
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">-</Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       <Chip
                         label={student.totalAttendances}
                         size="small"
@@ -242,6 +267,15 @@ export default function StudentList() {
                     </TableCell>
                     {isAdminOrInstructor && (
                       <TableCell align="right">
+                        <Tooltip title="Enroll in Package">
+                          <IconButton
+                            color="secondary"
+                            size="small"
+                            onClick={() => handleEnrollStudent(student.id)}
+                          >
+                            <CardGiftcardIcon />
+                          </IconButton>
+                        </Tooltip>
                         <IconButton
                           color="primary"
                           size="small"
@@ -271,6 +305,18 @@ export default function StudentList() {
         onClose={handleDialogClose}
         onSaved={handleSaved}
         student={editStudent}
+      />
+
+      <EnrollPackageDialog
+        open={enrollDialogOpen}
+        onClose={() => setEnrollDialogOpen(false)}
+        onEnrolled={() => {
+          setEnrollDialogOpen(false);
+          fetchStudents();
+        }}
+        preSelectedStudentId={enrollStudentId}
+        billingYear={new Date().getFullYear()}
+        billingMonth={new Date().getMonth() + 1}
       />
     </Box>
   );

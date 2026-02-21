@@ -17,7 +17,4 @@ public class RegisterDto
 
     [Required]
     public string LastName { get; set; } = string.Empty;
-
-    [Required]
-    public string Role { get; set; } = "Student"; // Default role
 }

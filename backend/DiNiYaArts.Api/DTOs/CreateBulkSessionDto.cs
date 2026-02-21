@@ -30,6 +30,14 @@ public class CreateBulkSessionDto
     public int MaxStudents { get; set; } = 10;
 
     public string? Notes { get; set; }
+
+    public List<int>? StudentIds { get; set; }
+
+    /// <summary>
+    /// Client timezone offset in minutes from JS Date.getTimezoneOffset().
+    /// Used to convert local start time to UTC for consistent storage.
+    /// </summary>
+    public int TimezoneOffsetMinutes { get; set; }
 }
 
 public enum RecurrencePattern

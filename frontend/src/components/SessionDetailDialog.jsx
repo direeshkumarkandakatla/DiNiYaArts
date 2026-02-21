@@ -22,14 +22,19 @@ import PeopleIcon from '@mui/icons-material/People';
 import PersonIcon from '@mui/icons-material/Person';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
+import RestoreIcon from '@mui/icons-material/Restore';
 import { sessionsAPI } from '../services/api';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import AttendanceMarker from './AttendanceMarker';
 
 export default function SessionDetailDialog({ open, onClose, session, onUpdated }) {
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(false);
   const [error, setError] = useState('');
   const [classTypes, setClassTypes] = useState([]);
   const [formData, setFormData] = useState({});
@@ -51,9 +56,28 @@ export default function SessionDetailDialog({ open, onClose, session, onUpdated 
 
   if (!session) return null;
 
-  const isAdminOrInstructor = user?.roles?.some(
-    (r) => r === 'Administrator' || r === 'Instructor'
-  );
+  const isAdmin = user?.roles?.includes('Administrator');
+  const isInstructor = user?.roles?.includes('Instructor');
+  const isAdminOrInstructor = isAdmin || isInstructor;
+  // Instructors can only edit/delete their own sessions; Admin can edit all
+  const canEditSession = isAdmin || (isInstructor && session.createdByUserId === user?.userId);
+  const isLocked = session.status === 'Completed' || session.status === 'Cancelled';
+
+  const statusColor = session.status === 'Completed' ? 'success' : session.status === 'Cancelled' ? 'error' : 'default';
+
+  const handleStatusChange = async (newStatus) => {
+    setStatusLoading(true);
+    setError('');
+    try {
+      await sessionsAPI.updateStatus(session.id, { status: newStatus });
+      onUpdated();
+    } catch (err) {
+      const message = err.response?.data?.message || 'Failed to update session status';
+      setError(message);
+    } finally {
+      setStatusLoading(false);
+    }
+  };
 
   const formatDateTimeLocal = (dateStr) => {
     const d = new Date(dateStr);
@@ -142,7 +166,7 @@ export default function SessionDetailDialog({ open, onClose, session, onUpdated 
   const isFull = session.currentStudentCount >= session.maxStudents;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box
@@ -154,6 +178,9 @@ export default function SessionDetailDialog({ open, onClose, session, onUpdated 
             }}
           />
           {editing ? 'Edit Session' : session.classTypeName}
+          {!editing && (
+            <Chip label={session.status} color={statusColor} size="small" sx={{ ml: 1 }} />
+          )}
         </Box>
       </DialogTitle>
 
@@ -280,12 +307,25 @@ export default function SessionDetailDialog({ open, onClose, session, onUpdated 
                 </Box>
               </>
             )}
+
+            {/* Attendance Section */}
+            <Divider />
+            <Box>
+              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
+                Attendance
+              </Typography>
+              <AttendanceMarker
+                sessionId={session.id}
+                canEdit={canEditSession && !isLocked}
+                onAttendanceChanged={onUpdated}
+              />
+            </Box>
           </Box>
         )}
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        {isAdminOrInstructor && !editing && (
+      <DialogActions sx={{ px: 3, pb: 2, flexWrap: 'wrap', gap: 1 }}>
+        {canEditSession && !editing && !isLocked && (
           <Button
             color="error"
             startIcon={<DeleteIcon />}
@@ -293,6 +333,38 @@ export default function SessionDetailDialog({ open, onClose, session, onUpdated 
             disabled={deleting}
           >
             Delete
+          </Button>
+        )}
+        {canEditSession && !editing && !isLocked && (
+          <>
+            <Button
+              color="success"
+              startIcon={<CheckCircleIcon />}
+              onClick={() => handleStatusChange('Completed')}
+              disabled={statusLoading}
+              size="small"
+            >
+              Mark Completed
+            </Button>
+            <Button
+              color="error"
+              startIcon={<CancelIcon />}
+              onClick={() => handleStatusChange('Cancelled')}
+              disabled={statusLoading}
+              size="small"
+            >
+              Cancel Session
+            </Button>
+          </>
+        )}
+        {canEditSession && !editing && isLocked && (
+          <Button
+            startIcon={<RestoreIcon />}
+            onClick={() => handleStatusChange('Scheduled')}
+            disabled={statusLoading}
+            size="small"
+          >
+            Reopen Session
           </Button>
         )}
         <Box sx={{ flexGrow: 1 }} />
@@ -309,7 +381,7 @@ export default function SessionDetailDialog({ open, onClose, session, onUpdated 
           </>
         ) : (
           <>
-            {isAdminOrInstructor && (
+            {canEditSession && !isLocked && (
               <Button
                 startIcon={<EditIcon />}
                 onClick={handleStartEdit}

@@ -15,8 +15,15 @@ import {
   MenuItem,
   FormControlLabel,
   Switch,
+  Typography,
+  Autocomplete,
+  Chip,
+  Divider,
 } from '@mui/material';
+import LinkIcon from '@mui/icons-material/Link';
+import LinkOffIcon from '@mui/icons-material/LinkOff';
 import { studentsAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const AGE_GROUPS = [
   { value: '', label: 'Not specified' },
@@ -31,6 +38,9 @@ const AGE_GROUPS = [
 
 export default function StudentDialog({ open, onClose, onSaved, student }) {
   const isEdit = Boolean(student);
+  const { user } = useAuth();
+  const isAdmin = user?.roles?.includes('Administrator');
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
@@ -42,6 +52,16 @@ export default function StudentDialog({ open, onClose, onSaved, student }) {
     ageGroup: '',
     isActive: true,
   });
+
+  // User linking state (Admin only)
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [userSearchResults, setUserSearchResults] = useState([]);
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedParent, setSelectedParent] = useState(null);
+  const [parentSearchQuery, setParentSearchQuery] = useState('');
+  const [parentSearchResults, setParentSearchResults] = useState([]);
+  const [parentSearchLoading, setParentSearchLoading] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -57,6 +77,16 @@ export default function StudentDialog({ open, onClose, onSaved, student }) {
           ageGroup: student.ageGroup || '',
           isActive: student.isActive ?? true,
         });
+        setSelectedUser(
+          student.userId
+            ? { id: student.userId, label: student.linkedUserName?.trim() || 'Linked User' }
+            : null
+        );
+        setSelectedParent(
+          student.parentUserId
+            ? { id: student.parentUserId, label: student.parentName?.trim() || 'Linked Parent' }
+            : null
+        );
       } else {
         setFormData({
           firstName: '',
@@ -67,10 +97,51 @@ export default function StudentDialog({ open, onClose, onSaved, student }) {
           ageGroup: '',
           isActive: true,
         });
+        setSelectedUser(null);
+        setSelectedParent(null);
       }
       setError('');
+      setUserSearchQuery('');
+      setUserSearchResults([]);
+      setParentSearchQuery('');
+      setParentSearchResults([]);
     }
   }, [open, student]);
+
+  // Search users for linking
+  const searchUsers = async (query, setResults, setSearchLoading) => {
+    if (!query || query.length < 2) {
+      setResults([]);
+      return;
+    }
+    setSearchLoading(true);
+    try {
+      const response = await studentsAPI.searchUsers(query);
+      setResults(
+        response.data.map((u) => ({
+          id: u.id,
+          label: `${u.firstName || ''} ${u.lastName || ''} (${u.email})`.trim(),
+          firstName: u.firstName,
+          lastName: u.lastName,
+          email: u.email,
+        }))
+      );
+    } catch (err) {
+      console.error('User search failed:', err);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => searchUsers(userSearchQuery, setUserSearchResults, setUserSearchLoading), 300);
+    return () => clearTimeout(timer);
+  }, [userSearchQuery]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => searchUsers(parentSearchQuery, setParentSearchResults, setParentSearchLoading), 300);
+    return () => clearTimeout(timer);
+  }, [parentSearchQuery]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -98,6 +169,25 @@ export default function StudentDialog({ open, onClose, onSaved, student }) {
           ...payload,
           isActive: formData.isActive,
         });
+
+        // Admin: handle user linking changes
+        if (isAdmin) {
+          const userChanged = (selectedUser?.id || null) !== (student.userId || null);
+          const parentChanged = (selectedParent?.id || null) !== (student.parentUserId || null);
+
+          if (userChanged) {
+            await studentsAPI.linkToUser(student.id, {
+              userId: selectedUser?.id || null,
+              linkType: 'Self',
+            });
+          }
+          if (parentChanged) {
+            await studentsAPI.linkToUser(student.id, {
+              userId: selectedParent?.id || null,
+              linkType: 'Parent',
+            });
+          }
+        }
       } else {
         await studentsAPI.create(payload);
       }
@@ -203,6 +293,78 @@ export default function StudentDialog({ open, onClose, onSaved, student }) {
               label="Active"
               sx={{ mt: 1 }}
             />
+          )}
+
+          {/* Admin-only: Direct user linking */}
+          {isAdmin && isEdit && (
+            <>
+              <Divider sx={{ mt: 2, mb: 1 }} />
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                Account Linking (Admin)
+              </Typography>
+
+              <Autocomplete
+                options={userSearchResults}
+                getOptionLabel={(option) => option.label || ''}
+                value={selectedUser}
+                onChange={(_, newValue) => setSelectedUser(newValue)}
+                onInputChange={(_, value) => setUserSearchQuery(value)}
+                loading={userSearchLoading}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Linked User Account"
+                    placeholder="Search by name or email..."
+                    margin="normal"
+                    size="small"
+                    slotProps={{
+                      input: {
+                        ...params.InputProps,
+                        startAdornment: (
+                          <>
+                            <LinkIcon sx={{ mr: 1, color: 'action.active' }} />
+                            {params.InputProps.startAdornment}
+                          </>
+                        ),
+                      },
+                    }}
+                  />
+                )}
+                noOptionsText={userSearchQuery.length < 2 ? 'Type to search...' : 'No users found'}
+              />
+
+              <Autocomplete
+                options={parentSearchResults}
+                getOptionLabel={(option) => option.label || ''}
+                value={selectedParent}
+                onChange={(_, newValue) => setSelectedParent(newValue)}
+                onInputChange={(_, value) => setParentSearchQuery(value)}
+                loading={parentSearchLoading}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Parent Account"
+                    placeholder="Search by name or email..."
+                    margin="normal"
+                    size="small"
+                    slotProps={{
+                      input: {
+                        ...params.InputProps,
+                        startAdornment: (
+                          <>
+                            <LinkIcon sx={{ mr: 1, color: 'action.active' }} />
+                            {params.InputProps.startAdornment}
+                          </>
+                        ),
+                      },
+                    }}
+                  />
+                )}
+                noOptionsText={parentSearchQuery.length < 2 ? 'Type to search...' : 'No users found'}
+              />
+            </>
           )}
         </DialogContent>
 

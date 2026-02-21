@@ -3,6 +3,7 @@ using DiNiYaArts.Api.Data;
 using DiNiYaArts.Api.DTOs;
 using DiNiYaArts.Api.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,11 +15,16 @@ namespace DiNiYaArts.Api.Controllers;
 public class StudentLinkRequestsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
+    private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<StudentLinkRequestsController> _logger;
 
-    public StudentLinkRequestsController(ApplicationDbContext context, ILogger<StudentLinkRequestsController> logger)
+    public StudentLinkRequestsController(
+        ApplicationDbContext context,
+        UserManager<ApplicationUser> userManager,
+        ILogger<StudentLinkRequestsController> logger)
     {
         _context = context;
+        _userManager = userManager;
         _logger = logger;
     }
 
@@ -146,6 +152,29 @@ public class StudentLinkRequestsController : ControllerBase
             .Include(r => r.Student)
             .Include(r => r.ReviewedBy)
             .Where(r => r.RequestedByUserId == userId)
+            // Hide approved requests whose student was deleted (inactive)
+            .Where(r => r.Student == null || r.Student.IsActive)
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync();
+
+        return Ok(requests.Select(MapToDto));
+    }
+
+    // Admin: Get all requests with optional status filter
+    [HttpGet("all")]
+    [Authorize(Roles = "Administrator,Instructor")]
+    public async Task<ActionResult<IEnumerable<StudentLinkRequestResponseDto>>> GetAll([FromQuery] string? status)
+    {
+        var query = _context.StudentLinkRequests
+            .Include(r => r.RequestedBy)
+            .Include(r => r.Student)
+            .Include(r => r.ReviewedBy)
+            .AsQueryable();
+
+        if (!string.IsNullOrEmpty(status) && Enum.TryParse<LinkRequestStatus>(status, true, out var parsedStatus))
+            query = query.Where(r => r.Status == parsedStatus);
+
+        var requests = await query
             .OrderByDescending(r => r.CreatedAt)
             .ToListAsync();
 
@@ -234,6 +263,18 @@ public class StudentLinkRequestsController : ControllerBase
 
         await _context.SaveChangesAsync();
 
+        // Auto-assign role based on link type
+        var requestingUser = await _userManager.FindByIdAsync(request.RequestedByUserId);
+        if (requestingUser != null)
+        {
+            var roleName = request.LinkType == StudentLinkType.Self ? "Student" : "Parent";
+            if (!await _userManager.IsInRoleAsync(requestingUser, roleName))
+            {
+                await _userManager.AddToRoleAsync(requestingUser, roleName);
+                _logger.LogInformation("Auto-assigned {Role} role to user {UserId}", roleName, request.RequestedByUserId);
+            }
+        }
+
         _logger.LogInformation("Admin {AdminId} approved link request {RequestId}", adminUserId, id);
 
         return Ok(await MapToResponseDto(id));
@@ -265,6 +306,22 @@ public class StudentLinkRequestsController : ControllerBase
         _logger.LogInformation("Admin {AdminId} rejected link request {RequestId}", adminUserId, id);
 
         return Ok(await MapToResponseDto(id));
+    }
+
+    // Admin: Clear all resolved (approved/rejected) requests
+    [HttpDelete("clear-resolved")]
+    [Authorize(Roles = "Administrator")]
+    public async Task<ActionResult> ClearResolved()
+    {
+        var resolved = await _context.StudentLinkRequests
+            .Where(r => r.Status == LinkRequestStatus.Approved || r.Status == LinkRequestStatus.Rejected)
+            .ToListAsync();
+
+        _context.StudentLinkRequests.RemoveRange(resolved);
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Cleared {Count} resolved link requests", resolved.Count);
+        return Ok(new { message = $"Cleared {resolved.Count} resolved requests", count = resolved.Count });
     }
 
     private async Task<StudentLinkRequestResponseDto> MapToResponseDto(int requestId)

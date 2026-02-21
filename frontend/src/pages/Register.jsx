@@ -10,10 +10,6 @@ import {
   Link,
   Alert,
   CircularProgress,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
 } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 
@@ -25,7 +21,6 @@ export default function Register() {
     password: '',
     firstName: '',
     lastName: '',
-    role: 'Student',
   });
   const [loading, setLoading] = useState(false);
   const [localError, setLocalError] = useState('');
@@ -124,21 +119,6 @@ export default function Register() {
               autoComplete="new-password"
               helperText="Minimum 6 characters with uppercase, lowercase, and digit"
             />
-
-            <FormControl fullWidth margin="normal" required>
-              <InputLabel>I am a</InputLabel>
-              <Select
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
-                label="I am a"
-              >
-                <MenuItem value="Student">Student</MenuItem>
-                <MenuItem value="Parent">Parent</MenuItem>
-                <MenuItem value="Instructor">Instructor</MenuItem>
-                <MenuItem value="Administrator">Administrator</MenuItem>
-              </Select>
-            </FormControl>
 
             <Button
               type="submit"

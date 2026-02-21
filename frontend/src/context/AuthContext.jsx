@@ -11,8 +11,12 @@ export const useAuth = () => {
   return context;
 };
 
+// Priority order for default active role
+const ROLE_PRIORITY = ['Administrator', 'Instructor', 'Parent', 'Student'];
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [activeRole, setActiveRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -26,10 +30,21 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  // When user changes, set default active role
+  useEffect(() => {
+    if (user?.roles?.length) {
+      const defaultRole = ROLE_PRIORITY.find((r) => user.roles.includes(r)) || user.roles[0];
+      setActiveRole(defaultRole);
+    } else {
+      setActiveRole(null);
+    }
+  }, [user]);
+
   const loadUser = async () => {
     try {
       const response = await authAPI.getCurrentUser();
-      setUser(response.data);
+      const { userId, email, firstName, lastName, roles } = response.data;
+      setUser({ userId, email, firstName, lastName, roles });
     } catch (err) {
       console.error('Failed to load user:', err);
       localStorage.removeItem('token');
@@ -75,10 +90,23 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('token');
     setUser(null);
+    setActiveRole(null);
   };
+
+  const switchRole = (role) => {
+    if (user?.roles?.includes(role)) {
+      setActiveRole(role);
+    }
+  };
+
+  // Helper: is the active role an admin/instructor context?
+  const isAdminContext = activeRole === 'Administrator' || activeRole === 'Instructor';
 
   const value = {
     user,
+    activeRole,
+    switchRole,
+    isAdminContext,
     loading,
     error,
     login,

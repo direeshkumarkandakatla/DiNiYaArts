@@ -13,6 +13,11 @@ import SessionList from './pages/SessionList';
 import StudentList from './pages/StudentList';
 import MyStudents from './pages/MyStudents';
 import LinkRequests from './pages/LinkRequests';
+import UserManagement from './pages/UserManagement';
+import BillingDashboard from './pages/BillingDashboard';
+import PackageManagement from './pages/PackageManagement';
+import MyDues from './pages/MyDues';
+import ClassTypeManagement from './pages/ClassTypeManagement';
 
 // Create MUI theme - Calm, kid-friendly, yoga-inspired palette
 const theme = createTheme({
@@ -79,10 +84,15 @@ function App() {
             >
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/sessions/calendar" element={<SessionCalendar />} />
-              <Route path="/sessions" element={<SessionList />} />
+              <Route path="/sessions" element={<RoleRoute roles={['Administrator', 'Instructor']}><SessionList /></RoleRoute>} />
               <Route path="/students" element={<RoleRoute roles={['Administrator', 'Instructor']}><StudentList /></RoleRoute>} />
               <Route path="/my-students" element={<MyStudents />} />
               <Route path="/link-requests" element={<RoleRoute roles={['Administrator', 'Instructor']}><LinkRequests /></RoleRoute>} />
+              <Route path="/billing" element={<RoleRoute roles={['Administrator', 'Instructor']}><BillingDashboard /></RoleRoute>} />
+              <Route path="/billing/packages" element={<RoleRoute roles={['Administrator']}><PackageManagement /></RoleRoute>} />
+              <Route path="/class-types" element={<RoleRoute roles={['Administrator']}><ClassTypeManagement /></RoleRoute>} />
+              <Route path="/my-dues" element={<MyDues />} />
+              <Route path="/users" element={<RoleRoute roles={['Administrator']}><UserManagement /></RoleRoute>} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

@@ -36,18 +36,20 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .OnDelete(DeleteBehavior.Restrict);
 
         // ApplicationUser -> StudentProfile (one-to-one)
+        // Restrict: can't delete a user who has a student profile (SQL Server cascade path safety)
         builder.Entity<ApplicationUser>()
             .HasOne(u => u.StudentProfile)
             .WithOne(s => s.User)
             .HasForeignKey<Student>(s => s.UserId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.Restrict);
 
         // ApplicationUser -> ManagedStudents (one-to-many, for parents)
+        // Restrict: can't delete a user who manages students (SQL Server cascade path safety)
         builder.Entity<ApplicationUser>()
             .HasMany(u => u.ManagedStudents)
             .WithOne(s => s.Parent)
             .HasForeignKey(s => s.ParentUserId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.Restrict);
 
         // ClassType decimal config
         builder.Entity<ClassType>()
@@ -80,7 +82,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .HasOne(r => r.RequestedBy)
             .WithMany()
             .HasForeignKey(r => r.RequestedByUserId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.Restrict);
 
         // StudentLinkRequest -> Student (many-to-one, optional)
         builder.Entity<StudentLinkRequest>()

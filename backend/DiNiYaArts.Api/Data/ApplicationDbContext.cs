@@ -171,6 +171,14 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .HasIndex(a => new { a.SessionId, a.StudentId })
             .IsUnique(); // One attendance record per student per session
 
+        // SQL Server does not support multiple cascade paths.
+        // Set all foreign keys to Restrict (NO ACTION) to prevent cascade conflicts.
+        foreach (var foreignKey in builder.Model.GetEntityTypes()
+            .SelectMany(e => e.GetForeignKeys()))
+        {
+            foreignKey.DeleteBehavior = DeleteBehavior.Restrict;
+        }
+
         // Seed initial roles
         SeedRoles(builder);
 

@@ -85,6 +85,17 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
+// External OAuth provider (Google)
+var googleAuth = builder.Configuration.GetSection("ExternalAuth:Google");
+if (!string.IsNullOrEmpty(googleAuth["ClientId"]))
+{
+    builder.Services.AddAuthentication().AddGoogle(options =>
+    {
+        options.ClientId = googleAuth["ClientId"]!;
+        options.ClientSecret = googleAuth["ClientSecret"]!;
+    });
+}
+
 // CORS — origins configurable via AllowedOrigins array in appsettings / env vars
 var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()
     ?? ["http://localhost:5173"];

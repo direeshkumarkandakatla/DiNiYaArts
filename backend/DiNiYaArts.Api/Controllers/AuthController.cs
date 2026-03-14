@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using DiNiYaArts.Api.DTOs;
 using DiNiYaArts.Api.Models;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
@@ -16,15 +17,18 @@ public class AuthController : ControllerBase
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly IConfiguration _configuration;
+    private readonly ILogger<AuthController> _logger;
 
     public AuthController(
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        ILogger<AuthController> logger)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _configuration = configuration;
+        _logger = logger;
     }
 
     [HttpPost("register")]
@@ -106,6 +110,106 @@ public class AuthController : ControllerBase
             user.ProfileImageUrl,
             Roles = roles
         });
+    }
+
+    [HttpGet("external-login")]
+    public IActionResult ExternalLogin([FromQuery] string provider)
+    {
+        if (!string.Equals(provider, "Google", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { message = "Invalid provider" });
+
+        var redirectUrl = Url.Action(nameof(ExternalLoginCallback), "Auth");
+        var properties = _signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl);
+        return Challenge(properties, provider);
+    }
+
+    [HttpGet("external-login-callback")]
+    public async Task<IActionResult> ExternalLoginCallback()
+    {
+        var frontendUrl = _configuration["FrontendUrl"] ?? "http://localhost:5173";
+
+        ExternalLoginInfo? info;
+        try
+        {
+            info = await _signInManager.GetExternalLoginInfoAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting external login info");
+            return Redirect($"{frontendUrl}/auth/callback?error=external_login_failed");
+        }
+
+        if (info == null)
+            return Redirect($"{frontendUrl}/auth/callback?error=external_login_failed");
+
+        var email = info.Principal.FindFirstValue(ClaimTypes.Email);
+        if (string.IsNullOrEmpty(email))
+            return Redirect($"{frontendUrl}/auth/callback?error=email_not_provided");
+
+        var firstName = info.Principal.FindFirstValue(ClaimTypes.GivenName) ?? "";
+        var lastName = info.Principal.FindFirstValue(ClaimTypes.Surname) ?? "";
+
+        // Try to find user by external login
+        var user = await _userManager.FindByLoginAsync(info.LoginProvider, info.ProviderKey);
+
+        if (user == null)
+        {
+            // Try to find by email (auto-link)
+            user = await _userManager.FindByEmailAsync(email);
+
+            if (user != null)
+            {
+                // Link provider to existing account
+                var addLoginResult = await _userManager.AddLoginAsync(user, info);
+                if (!addLoginResult.Succeeded)
+                {
+                    _logger.LogWarning("Failed to link {Provider} to user {Email}: {Errors}",
+                        info.LoginProvider, email,
+                        string.Join(", ", addLoginResult.Errors.Select(e => e.Description)));
+                    return Redirect($"{frontendUrl}/auth/callback?error=link_failed");
+                }
+            }
+            else
+            {
+                // Create new user
+                user = new ApplicationUser
+                {
+                    UserName = email,
+                    Email = email,
+                    FirstName = firstName,
+                    LastName = lastName,
+                    EmailConfirmed = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                var createResult = await _userManager.CreateAsync(user);
+                if (!createResult.Succeeded)
+                {
+                    _logger.LogWarning("Failed to create user for {Provider} login {Email}: {Errors}",
+                        info.LoginProvider, email,
+                        string.Join(", ", createResult.Errors.Select(e => e.Description)));
+                    return Redirect($"{frontendUrl}/auth/callback?error=account_creation_failed");
+                }
+
+                var addLoginResult = await _userManager.AddLoginAsync(user, info);
+                if (!addLoginResult.Succeeded)
+                {
+                    _logger.LogWarning("Failed to add {Provider} login for new user {Email}: {Errors}",
+                        info.LoginProvider, email,
+                        string.Join(", ", addLoginResult.Errors.Select(e => e.Description)));
+                }
+            }
+        }
+
+        if (!user.IsActive)
+            return Redirect($"{frontendUrl}/auth/callback?error=account_deactivated");
+
+        // Update last login
+        user.LastLoginAt = DateTime.UtcNow;
+        await _userManager.UpdateAsync(user);
+
+        var tokenResponse = await GenerateJwtToken(user);
+        return Redirect($"{frontendUrl}/auth/callback?token={tokenResponse.Token}");
     }
 
     private async Task<AuthResponseDto> GenerateJwtToken(ApplicationUser user)

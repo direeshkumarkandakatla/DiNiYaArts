@@ -12,6 +12,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
+import SocialLoginButtons from '../components/SocialLoginButtons';
 
 export default function Register() {
   const navigate = useNavigate();
@@ -139,6 +140,8 @@ export default function Register() {
                 </Link>
               </Typography>
             </Box>
+
+            <SocialLoginButtons />
           </Box>
         </Paper>
       </Box>

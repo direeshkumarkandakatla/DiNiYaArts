@@ -18,6 +18,7 @@ import BillingDashboard from './pages/BillingDashboard';
 import PackageManagement from './pages/PackageManagement';
 import MyDues from './pages/MyDues';
 import ClassTypeManagement from './pages/ClassTypeManagement';
+import AuthCallback from './pages/AuthCallback';
 
 // Create MUI theme - Calm, kid-friendly, yoga-inspired palette
 const theme = createTheme({
@@ -73,6 +74,7 @@ function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
 
             {/* Protected routes with layout */}
             <Route

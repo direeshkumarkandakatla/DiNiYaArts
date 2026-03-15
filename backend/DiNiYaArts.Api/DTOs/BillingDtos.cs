@@ -161,6 +161,9 @@ public class StudentBalanceDto
     public decimal TotalPayments { get; set; }
     public decimal TotalDiscounts { get; set; }
     public decimal OutstandingBalance { get; set; }
+    public decimal MonthlyDues { get; set; }
+    public decimal MonthlyPayments { get; set; }
+    public decimal MonthlyDiscounts { get; set; }
     public List<StudentPackageResponseDto> Packages { get; set; } = new();
     public List<SessionChargeDto> SessionCharges { get; set; } = new();
     public List<PaymentResponseDto> RecentPayments { get; set; } = new();
@@ -169,6 +172,7 @@ public class StudentBalanceDto
 public class BillingSummaryDto
 {
     public decimal TotalOutstanding { get; set; }
+    public decimal BilledThisMonth { get; set; }
     public decimal CollectedThisMonth { get; set; }
     public int StudentsWithDues { get; set; }
     public List<StudentBalanceDto> StudentBalances { get; set; } = new();

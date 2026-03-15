@@ -347,6 +347,7 @@ public class BillingController : ControllerBase
         return Ok(new BillingSummaryDto
         {
             TotalOutstanding = studentBalances.Sum(b => Math.Max(0, b.OutstandingBalance)),
+            BilledThisMonth = studentBalances.Sum(b => b.SessionCharges.Sum(sc => sc.ChargeAmount)),
             CollectedThisMonth = collectedThisMonth,
             StudentsWithDues = studentBalances.Count(b => b.OutstandingBalance > 0),
             StudentBalances = studentBalances.OrderByDescending(b => b.OutstandingBalance).ToList()
@@ -575,7 +576,7 @@ public class BillingController : ControllerBase
         }
 
         // Build session charges for the target month
-        var (sessionCharges, _) = await BuildSessionCharges(studentId, targetYear, targetMonth);
+        var (sessionCharges, monthlyDues) = await BuildSessionCharges(studentId, targetYear, targetMonth);
 
         // Compute all-time dues from session charges across all months
         decimal allTimeDues = await ComputeAllTimeDues(studentId);
@@ -587,6 +588,16 @@ public class BillingController : ControllerBase
             .ToListAsync();
         var totalPayments = studentPayments.Sum(p => p.Amount);
         var totalDiscounts = studentPayments.Sum(p => p.Discount);
+
+        // Monthly payments (for the target month)
+        var monthStart = new DateTime(targetYear, targetMonth, 1);
+        var monthEnd = monthStart.AddMonths(1);
+        var monthlyPaymentData = await _context.Payments
+            .Where(p => p.StudentId == studentId && p.PaymentDate >= monthStart && p.PaymentDate < monthEnd)
+            .Select(p => new { p.Amount, p.Discount })
+            .ToListAsync();
+        var monthlyPayments = monthlyPaymentData.Sum(p => p.Amount);
+        var monthlyDiscounts = monthlyPaymentData.Sum(p => p.Discount);
 
         // Recent payments
         var recentPayments = await _context.Payments
@@ -616,6 +627,9 @@ public class BillingController : ControllerBase
             TotalPayments = totalPayments,
             TotalDiscounts = totalDiscounts,
             OutstandingBalance = allTimeDues - totalPayments - totalDiscounts,
+            MonthlyDues = monthlyDues,
+            MonthlyPayments = monthlyPayments,
+            MonthlyDiscounts = monthlyDiscounts,
             Packages = packageDtos,
             SessionCharges = sessionCharges,
             RecentPayments = recentPayments

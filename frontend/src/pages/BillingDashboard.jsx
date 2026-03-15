@@ -22,6 +22,8 @@ import {
   IconButton,
   Tooltip,
   Collapse,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import PaymentIcon from '@mui/icons-material/Payment';
@@ -70,6 +72,7 @@ export default function BillingDashboard() {
   const [paymentStudentId, setPaymentStudentId] = useState(null);
   const [paymentBalance, setPaymentBalance] = useState(null);
   const [expandedRows, setExpandedRows] = useState({});
+  const [detailTab, setDetailTab] = useState({});
   const navigate = useNavigate();
   const { activeRole } = useAuth();
   const isAdmin = activeRole === 'Administrator';
@@ -165,6 +168,14 @@ export default function BillingDashboard() {
               </Typography>
             </CardContent>
           </Card>
+          <Card sx={{ flex: '1 1 200px', bgcolor: '#F3E5F5' }}>
+            <CardContent>
+              <Typography variant="body2" color="text.secondary">Billed This Month</Typography>
+              <Typography variant="h4" fontWeight={700} color="secondary.dark">
+                ${summary.billedThisMonth.toFixed(2)}
+              </Typography>
+            </CardContent>
+          </Card>
           <Card sx={{ flex: '1 1 200px', bgcolor: '#E3F2FD' }}>
             <CardContent>
               <Typography variant="body2" color="text.secondary">Collected This Month</Typography>
@@ -215,10 +226,9 @@ export default function BillingDashboard() {
                 <TableCell>Student</TableCell>
                 <TableCell>Packages</TableCell>
                 <TableCell align="center">Sessions</TableCell>
-                <TableCell align="right">Dues</TableCell>
-                <TableCell align="right">Paid</TableCell>
-                <TableCell align="right">Discounts</TableCell>
-                <TableCell align="right">Balance</TableCell>
+                <TableCell align="right">Month Dues</TableCell>
+                <TableCell align="right">Month Paid</TableCell>
+                <TableCell align="right">Total Balance</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -257,10 +267,9 @@ export default function BillingDashboard() {
                         {sb.sessionCharges?.length || 0}
                       </Typography>
                     </TableCell>
-                    <TableCell align="right">${sb.totalDues.toFixed(2)}</TableCell>
-                    <TableCell align="right">${sb.totalPayments.toFixed(2)}</TableCell>
+                    <TableCell align="right">${sb.monthlyDues.toFixed(2)}</TableCell>
                     <TableCell align="right">
-                      {sb.totalDiscounts > 0 ? `$${sb.totalDiscounts.toFixed(2)}` : '-'}
+                      {sb.monthlyPayments > 0 ? `$${sb.monthlyPayments.toFixed(2)}` : '-'}
                     </TableCell>
                     <TableCell align="right">
                       <Typography
@@ -293,68 +302,123 @@ export default function BillingDashboard() {
                     </TableCell>
                   </TableRow>
 
-                  {/* Expandable Session Charges */}
+                  {/* Expandable Details with Tabs */}
                   <TableRow>
-                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={9}>
+                    <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={8}>
                       <Collapse in={expandedRows[sb.studentId]} timeout="auto" unmountOnExit>
                         <Box sx={{ py: 2, px: 1 }}>
-                          <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                            Session Charges — {MONTHS.find((m) => m.value === month)?.label} {year}
-                          </Typography>
-                          {sb.sessionCharges && sb.sessionCharges.length > 0 ? (
-                            <Table size="small">
-                              <TableHead>
-                                <TableRow>
-                                  <TableCell>Date</TableCell>
-                                  <TableCell>Class Type</TableCell>
-                                  <TableCell>Status</TableCell>
-                                  <TableCell>Source</TableCell>
-                                  <TableCell align="right">Charge</TableCell>
-                                </TableRow>
-                              </TableHead>
-                              <TableBody>
-                                {sb.sessionCharges.map((sc, idx) => (
-                                  <TableRow key={idx}>
-                                    <TableCell>{formatDate(sc.sessionDate)}</TableCell>
-                                    <TableCell>
-                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Box
-                                          sx={{
-                                            width: 10,
-                                            height: 10,
-                                            borderRadius: '50%',
-                                            bgcolor: sc.classTypeColor,
-                                          }}
-                                        />
-                                        {sc.classTypeName}
-                                      </Box>
-                                    </TableCell>
-                                    <TableCell>
-                                      <Chip
-                                        label={sc.attendanceStatus}
-                                        size="small"
-                                        color={sc.attendanceStatus === 'Present' ? 'success' : 'warning'}
-                                        variant="outlined"
-                                      />
-                                    </TableCell>
-                                    <TableCell>
-                                      <Typography variant="body2" color="text.secondary">
-                                        {sc.chargeSource}
-                                      </Typography>
-                                    </TableCell>
-                                    <TableCell align="right">
-                                      <Typography variant="body2" fontWeight={500}>
-                                        ${sc.chargeAmount.toFixed(2)}
-                                      </Typography>
-                                    </TableCell>
+                          <Tabs
+                            value={detailTab[sb.studentId] || 0}
+                            onChange={(_, v) => setDetailTab((prev) => ({ ...prev, [sb.studentId]: v }))}
+                            sx={{ mb: 2, minHeight: 36, '& .MuiTab-root': { minHeight: 36, py: 0.5, textTransform: 'none' } }}
+                          >
+                            <Tab label={`Session Charges (${sb.sessionCharges?.length || 0})`} />
+                            <Tab label={`Payment History (${sb.recentPayments?.length || 0})`} />
+                          </Tabs>
+
+                          {/* Session Charges Tab */}
+                          {(detailTab[sb.studentId] || 0) === 0 && (
+                            sb.sessionCharges && sb.sessionCharges.length > 0 ? (
+                              <Table size="small">
+                                <TableHead>
+                                  <TableRow>
+                                    <TableCell>Date</TableCell>
+                                    <TableCell>Class Type</TableCell>
+                                    <TableCell>Status</TableCell>
+                                    <TableCell>Source</TableCell>
+                                    <TableCell align="right">Charge</TableCell>
                                   </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          ) : (
-                            <Typography variant="body2" color="text.secondary">
-                              No session charges this month
-                            </Typography>
+                                </TableHead>
+                                <TableBody>
+                                  {sb.sessionCharges.map((sc, idx) => (
+                                    <TableRow key={idx}>
+                                      <TableCell>{formatDate(sc.sessionDate)}</TableCell>
+                                      <TableCell>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                          <Box
+                                            sx={{
+                                              width: 10,
+                                              height: 10,
+                                              borderRadius: '50%',
+                                              bgcolor: sc.classTypeColor,
+                                            }}
+                                          />
+                                          {sc.classTypeName}
+                                        </Box>
+                                      </TableCell>
+                                      <TableCell>
+                                        <Chip
+                                          label={sc.attendanceStatus}
+                                          size="small"
+                                          color={sc.attendanceStatus === 'Present' ? 'success' : 'warning'}
+                                          variant="outlined"
+                                        />
+                                      </TableCell>
+                                      <TableCell>
+                                        <Typography variant="body2" color="text.secondary">
+                                          {sc.chargeSource}
+                                        </Typography>
+                                      </TableCell>
+                                      <TableCell align="right">
+                                        <Typography variant="body2" fontWeight={500}>
+                                          ${sc.chargeAmount.toFixed(2)}
+                                        </Typography>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary">
+                                No session charges this month
+                              </Typography>
+                            )
+                          )}
+
+                          {/* Payment History Tab */}
+                          {detailTab[sb.studentId] === 1 && (
+                            sb.recentPayments && sb.recentPayments.length > 0 ? (
+                              <Table size="small">
+                                <TableHead>
+                                  <TableRow>
+                                    <TableCell>Date</TableCell>
+                                    <TableCell align="right">Amount</TableCell>
+                                    <TableCell align="right">Discount</TableCell>
+                                    <TableCell>Notes</TableCell>
+                                    <TableCell>Recorded By</TableCell>
+                                  </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                  {sb.recentPayments.map((p) => (
+                                    <TableRow key={p.id}>
+                                      <TableCell>{formatDate(p.paymentDate)}</TableCell>
+                                      <TableCell align="right">
+                                        <Typography variant="body2" fontWeight={500} color="success.main">
+                                          ${p.amount.toFixed(2)}
+                                        </Typography>
+                                      </TableCell>
+                                      <TableCell align="right">
+                                        {p.discount > 0 ? `$${p.discount.toFixed(2)}` : '-'}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                          {p.notes || '-'}
+                                        </Typography>
+                                      </TableCell>
+                                      <TableCell>
+                                        <Typography variant="body2" color="text.secondary">
+                                          {p.recordedByName}
+                                        </Typography>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary">
+                                No payments recorded
+                              </Typography>
+                            )
                           )}
                         </Box>
                       </Collapse>
